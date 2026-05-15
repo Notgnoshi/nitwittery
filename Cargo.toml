@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["papermc", "papermc-loader"]
+members = ["nitwittery-plugin", "papermc", "papermc-loader"]
 
 [workspace.package]
 version = "0.0.1-rc0"

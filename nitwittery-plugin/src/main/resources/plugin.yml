@@ -1,0 +1,9 @@
+name: Nitwittery
+version: 0.0.1-rc0
+main: io.papermc.RustReloadablePlugin
+api-version: '26.1.2'
+description: Paper Minecraft plugin written in Rust.
+author: Austin Gill
+# Commands are registered programmatically from Rust via the CommandMap.
+# The plugin self-cycles in response to ServerResourcesReloadedEvent
+# (i.e. plain /reload) to apply rebuilt Rust code.
