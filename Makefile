@@ -2,46 +2,73 @@ GRADLE_VERSION ?= 9.5.0
 RUST_LOG ?= DEBUG
 
 .PHONY: all
-all: nitwittery-plugin
+all: build
+
+# ---- Build / run ----
 
 gradlew:
 	gradle wrapper --gradle-version $(GRADLE_VERSION)
 
-.PHONY: papermc
-papermc: gradlew cargo
-	./gradlew :papermc:build
+.PHONY: build
+build: cargo gradle
+
+.PHONY: cargo
+cargo:
+	cargo build --workspace --release
+
+.PHONY: gradle
+gradle: gradlew
+	./gradlew build
 
 .PHONY: nitwittery-plugin
 nitwittery-plugin: gradlew cargo
 	./gradlew :nitwittery-plugin:build
 
-.PHONY: cargo
-cargo:
-	cargo build --release
+.PHONY: run
+run: nitwittery-plugin
+	RUST_LOG=$(RUST_LOG) ./gradlew :nitwittery-plugin:runServer
 
-.PHONY: fmt
-fmt:
-	cargo fmt -- --config group_imports=StdExternalCrate,imports_granularity=Module
-
-.PHONY: fmt-check
-fmt-check:
-	cargo fmt --check -- --config group_imports=StdExternalCrate,imports_granularity=Module
-
-.PHONY: lint
-lint:
-	cargo clippy --workspace --all-targets -- -D warnings
+# ---- Test ----
 
 .PHONY: test
 test:
 	cargo test --workspace
 
-.PHONY: run
-run: nitwittery-plugin
-	RUST_LOG=$(RUST_LOG) ./gradlew :nitwittery-plugin:runServer
+# ---- Lint ----
+
+.PHONY: lint
+lint: lint-rust lint-java
+
+.PHONY: lint-rust
+lint-rust:
+	cargo clippy --workspace --all-targets -- -D warnings
+
+.PHONY: lint-java
+lint-java: gradlew
+	./gradlew spotlessCheck compileJava
+
+# ---- Format ----
+
+.PHONY: fmt
+fmt: fmt-rust fmt-other fmt-java
+
+.PHONY: fmt-rust
+fmt-rust:
+	cargo fmt -- --config group_imports=StdExternalCrate,imports_granularity=Module
+
+.PHONY: fmt-other
+fmt-other:
+	dprint fmt
+
+.PHONY: fmt-java
+fmt-java: gradlew
+	./gradlew spotlessApply
+
+# ---- Clean ----
 
 .PHONY: clean clean-all
 clean:
 	cargo clean
-	rm -rf ./build/ ./*/bin/
+	rm -rf ./build/ ./*/bin/ .settings/
 clean-all: clean
 	rm -rf ./run/ ./.gradle/ ./gradle/ gradlew gradlew.bat Cargo.lock
