@@ -24,7 +24,8 @@ make run
 
 ## Dependencies
 
-This project requires Rust, a JDK (25+), Gradle (9.5.0), and dprint.
+This project requires Rust and a JDK. It only supports Linux. It probably _could_ support Windows,
+but this is a toy project, and I don't have a Windows system available to test with.
 
 ### Rust 1.95+
 
@@ -37,15 +38,4 @@ This project requires Rust, a JDK (25+), Gradle (9.5.0), and dprint.
 sudo dnf install java-25-openjdk-devel
 # Ubuntu 26.04 (use temurin on earlier Ubuntu releases)
 sudo apt install openjdk-25-jdk
-```
-
-### Gradle 9.5.0+
-
-We use Gradle 9.5.0 to bootstrap `gradlew`, but you still need a system installation of gradle:
-
-```sh
-GRADLE_VERSION=9.5.0
-curl -fsSL "https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip" /tmp/gradle.zip
-unzip /tmp/gradle.zip -d ~/.local/share/
-ln -sf ~/.local/share/gradle-${GRADLE_VERSION}/bin/gradle ~/.local/bin/gradle
 ```

@@ -1,13 +1,7 @@
-GRADLE_VERSION ?= 9.5.0
 RUST_LOG ?= DEBUG
 
 .PHONY: all
 all: build
-
-# ---- Build / run ----
-
-gradlew:
-	gradle wrapper --gradle-version $(GRADLE_VERSION)
 
 .PHONY: build
 build: cargo gradle
@@ -17,24 +11,20 @@ cargo:
 	cargo build --workspace --release
 
 .PHONY: gradle
-gradle: gradlew
+gradle:
 	./gradlew build
 
 .PHONY: nitwittery-plugin
-nitwittery-plugin: gradlew cargo
+nitwittery-plugin: cargo
 	./gradlew :nitwittery-plugin:build
 
 .PHONY: run
 run: nitwittery-plugin
 	RUST_LOG=$(RUST_LOG) ./gradlew :nitwittery-plugin:runServer
 
-# ---- Test ----
-
 .PHONY: test
 test:
 	cargo test --workspace
-
-# ---- Lint ----
 
 .PHONY: lint
 lint: lint-rust lint-java
@@ -44,10 +34,8 @@ lint-rust:
 	cargo clippy --workspace --all-targets -- -D warnings
 
 .PHONY: lint-java
-lint-java: gradlew
+lint-java:
 	./gradlew spotlessCheck compileJava
-
-# ---- Format ----
 
 .PHONY: fmt
 fmt: fmt-rust fmt-other fmt-java
@@ -61,14 +49,12 @@ fmt-other:
 	dprint fmt
 
 .PHONY: fmt-java
-fmt-java: gradlew
+fmt-java:
 	./gradlew spotlessApply
-
-# ---- Clean ----
 
 .PHONY: clean clean-all
 clean:
 	cargo clean
 	rm -rf ./build/ ./*/bin/ .settings/
 clean-all: clean
-	rm -rf ./run/ ./.gradle/ ./gradle/ gradlew gradlew.bat Cargo.lock
+	rm -rf ./run/ ./.gradle/ Cargo.lock

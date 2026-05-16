@@ -8,7 +8,6 @@ on:
 
 env:
     CARGO_TERM_COLOR: always
-    GRADLE_VERSION: "9.5.0"
 
 jobs:
     lint:
@@ -25,8 +24,6 @@ jobs:
                   components: clippy, rustfmt
             - uses: Swatinem/rust-cache@v2
             - uses: gradle/actions/setup-gradle@v6
-              with:
-                  gradle-version: ${{ env.GRADLE_VERSION }}
 
             - uses: dprint/check@v2.3
             - name: make fmt

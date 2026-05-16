@@ -18,11 +18,7 @@ Cargo.lock
 .gradle/
 build/
 gradle.properties.local
-
-# Gradle wrapper
-/gradlew
-/gradlew.bat
-/gradle/
+gradlew.bat
 
 # Paper dev server working dir
 /run/
