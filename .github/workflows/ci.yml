@@ -1,0 +1,41 @@
+name: Lint
+
+on:
+    push:
+        branches: [main]
+    pull_request:
+        branches: [main]
+
+env:
+    CARGO_TERM_COLOR: always
+
+jobs:
+    lint:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v6
+            - uses: actions/setup-java@v5
+              with:
+                  distribution: temurin
+                  java-version: "25"
+
+            - uses: dtolnay/rust-toolchain@stable
+              with:
+                  components: clippy, rustfmt
+            - uses: Swatinem/rust-cache@v2
+            - uses: gradle/actions/setup-gradle@v6
+
+            - uses: dprint/check@v2.3
+            - name: make fmt
+              run: |
+                  make fmt
+                  git diff --exit-code
+
+            - name: make build
+              run: make build
+
+            - name: make lint
+              run: make lint
+
+            - name: make test
+              run: make test

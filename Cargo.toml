@@ -1,0 +1,19 @@
+[workspace]
+resolver = "3"
+members = ["nitwittery-plugin", "papermc", "papermc-loader"]
+
+[workspace.package]
+version = "0.0.1-rc0"
+edition = "2024"
+license = "MIT"
+rust-version = "1.95.0"
+
+[workspace.dependencies]
+arc-swap = "1"
+eyre = "0.6"
+jni = "0.22"
+jni-sys = "0.4"
+libloading = "0.9"
+papermc = { path = "papermc" }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
