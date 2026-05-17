@@ -2,7 +2,7 @@ use jni::objects::JValue;
 use jni::{jni_sig, jni_str};
 
 use crate::api::Api;
-use crate::bukkit::{Environment, Location};
+use crate::bukkit::{Environment, Location, Structure, StructureSearchResult};
 use crate::papermc_jobject;
 
 papermc_jobject! {
@@ -70,5 +70,44 @@ impl<'local> World<'local> {
                 &[JValue::Int(x), JValue::Int(z)],
             )?
             .i()?)
+    }
+
+    /// Mirrors `World#locateNearestStructure(Location, Structure, int, boolean)`.
+    ///
+    /// With `find_unexplored=true`, the call may generate chunks and block the calling thread;
+    /// must therefore be called from the main server thread.
+    pub fn locate_nearest_structure(
+        &self,
+        api: &mut Api<'_, 'local>,
+        origin: &Location<'local>,
+        structure: Structure,
+        radius: i32,
+        find_unexplored: bool,
+    ) -> eyre::Result<Option<StructureSearchResult<'local>>> {
+        let structure_obj = {
+            let env = api.jni();
+            structure.as_java(env)?
+        };
+        let env = api.jni();
+        let result = env
+            .call_method(
+                &self.obj,
+                jni_str!("locateNearestStructure"),
+                jni_sig!(
+                    "(Lorg/bukkit/Location;Lorg/bukkit/generator/structure/Structure;IZ)\
+                     Lorg/bukkit/util/StructureSearchResult;"
+                ),
+                &[
+                    JValue::Object(origin.as_jobject()),
+                    JValue::Object(&structure_obj),
+                    JValue::Int(radius),
+                    JValue::Bool(find_unexplored),
+                ],
+            )?
+            .l()?;
+        if result.is_null() {
+            return Ok(None);
+        }
+        Ok(Some(unsafe { StructureSearchResult::from_jobject(result) }))
     }
 }

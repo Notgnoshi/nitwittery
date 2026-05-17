@@ -9,6 +9,8 @@ pub mod event;
 mod key;
 mod location;
 pub(crate) mod mini_message;
+mod structure;
+mod structure_search_result;
 mod world;
 
 pub use audience::Audience;
@@ -19,4 +21,6 @@ pub use entity::{Entity, EntityInst, Player, Sheep};
 pub use environment::Environment;
 pub use key::Key;
 pub use location::Location;
+pub use structure::Structure;
+pub use structure_search_result::StructureSearchResult;
 pub use world::World;
