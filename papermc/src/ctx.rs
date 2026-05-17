@@ -12,6 +12,7 @@ use jni::strings::JNIStr;
 use crate::api::Api;
 use crate::callbacks::BiConsumerFn;
 use crate::dispatch::{CommandHandler, EventHandler};
+use crate::sync_call::SyncCallbackFn;
 
 pub(crate) type OnDisableFn =
     Box<dyn for<'a, 'local> Fn(&mut dyn Any, &mut Api<'a, 'local>) -> eyre::Result<()> + Send>;
@@ -25,6 +26,7 @@ pub(crate) struct Ctx {
     pub(crate) event_handlers: HashMap<i64, EventHandler>,
     pub(crate) command_handlers: HashMap<i64, CommandHandler>,
     pub(crate) callbacks: HashMap<i64, BiConsumerFn>,
+    pub(crate) sync_callbacks: HashMap<i64, SyncCallbackFn>,
     pub(crate) mini_message: Option<Arc<Global<JObject<'static>>>>,
     jni_cache: HashMap<&'static str, Arc<Global<JClass<'static>>>>,
     pub(crate) rust_plugin: Option<Box<dyn Any + Send>>,
@@ -39,6 +41,7 @@ impl Ctx {
             event_handlers: HashMap::new(),
             command_handlers: HashMap::new(),
             callbacks: HashMap::new(),
+            sync_callbacks: HashMap::new(),
             mini_message: None,
             jni_cache: HashMap::new(),
             rust_plugin: None,

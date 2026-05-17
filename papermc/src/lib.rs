@@ -14,6 +14,7 @@ mod plugin;
 mod plugin_init;
 mod registration;
 mod setup_api;
+mod sync_call;
 pub mod util;
 
 pub use api::Api;
@@ -24,7 +25,7 @@ pub use setup_api::SetupApi;
 /// ABI version of the `FnTable` struct.
 ///
 /// Bump when adding fields. Loaders refuse to load plugins with a mismatched version.
-pub const PLUGIN_ABI_VERSION: u32 = 2;
+pub const PLUGIN_ABI_VERSION: u32 = 3;
 
 /// The function-pointer table that plugins hand back to `papermc-loader` at init time.
 ///
@@ -56,6 +57,10 @@ pub struct FnTable {
     /// A Java functional-interface bridge (currently DialogActionCallback) was invoked; look up
     /// the Rust closure by id and run it with the two object arguments.
     pub dispatch_bi_consumer: unsafe extern "C" fn(*mut JNIEnv, jlong, jobject, jobject),
+    /// `RustCallable.bridgeDispatch(long id)` was invoked on the main thread.
+    ///
+    /// Look up the Rust closure registered under `id` and run it.
+    pub dispatch_callable: unsafe extern "C" fn(*mut JNIEnv, jlong),
     /// Java's Cleaner signalled that a bridge instance was GC'd; drop the Rust closure with the
     /// given id from the callback registry.
     pub drop_callback: unsafe extern "C" fn(jlong),

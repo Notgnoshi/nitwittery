@@ -7,7 +7,9 @@ use tracing::warn;
 use crate::api::Api;
 use crate::plugin::Plugin;
 use crate::setup_api::SetupApi;
-use crate::{FnTable, PLUGIN_ABI_VERSION, callbacks, ctx, dispatch, ffi, logger, registration};
+use crate::{
+    FnTable, PLUGIN_ABI_VERSION, callbacks, ctx, dispatch, ffi, logger, registration, sync_call,
+};
 
 /// The static `FnTable` returned by every `papermc_plugin_init` call.
 static FN_TABLE: FnTable = FnTable {
@@ -18,6 +20,7 @@ static FN_TABLE: FnTable = FnTable {
     dispatch_command: dispatch::dispatch_command,
     dispatch_tab_complete: dispatch::dispatch_tab_complete,
     dispatch_bi_consumer: callbacks::dispatch_bi_consumer,
+    dispatch_callable: sync_call::dispatch_callable,
     drop_callback: callbacks::drop_callback,
 };
 

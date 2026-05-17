@@ -254,3 +254,31 @@ pub extern "system" fn Java_io_papermc_RustDialogActionCallback_bridgeDrop<'loca
     let Some(loaded) = guard.as_ref() else { return };
     unsafe { ((*loaded.api).drop_callback)(id) };
 }
+
+/// Bridge for `RustCallable.bridgeDispatch(long id)`.
+//
+// JNI native-method export: the JVM is responsible for jobject validity.
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_io_papermc_RustCallable_bridgeDispatch<'local>(
+    unowned: EnvUnowned<'local>,
+    _class: JClass<'local>,
+    id: jlong,
+) {
+    let guard = LOADED_PLUGIN.load();
+    let Some(loaded) = guard.as_ref() else { return };
+    let raw_env = EnvUnowned::into_raw(unowned);
+    unsafe { ((*loaded.api).dispatch_callable)(raw_env, id) };
+}
+
+/// Bridge for `RustCallable.bridgeDrop(long id)`, called from Cleaner.
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_io_papermc_RustCallable_bridgeDrop<'local>(
+    _unowned: EnvUnowned<'local>,
+    _class: JClass<'local>,
+    id: jlong,
+) {
+    let guard = LOADED_PLUGIN.load();
+    let Some(loaded) = guard.as_ref() else { return };
+    unsafe { ((*loaded.api).drop_callback)(id) };
+}
