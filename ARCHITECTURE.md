@@ -20,8 +20,8 @@ Nitwittery's goal is to make Minecraft villagers / villages more interesting.
   loaded: a stable, never-unloaded loader can `dlclose` and re-`dlopen` the plugin .so to support
   `/reload` without restarting the server.
 
-  papermc-loader/ is meant to be stable. New plugin functionality should not require changes here; it
-  exists only to broker the Java <-> plugin handoff.
+  papermc-loader/ is meant to be stable. New plugin functionality should not require changes here;
+  it exists only to broker the Java <-> plugin handoff.
 
 * papermc/ - both the shared Rust / Java interface library AND the Java module that the consumer
   plugin depends on. The Rust crate wraps the JNI surface. The Java sources provide the base
