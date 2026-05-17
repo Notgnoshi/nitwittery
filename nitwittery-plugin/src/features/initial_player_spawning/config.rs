@@ -1,5 +1,4 @@
 #[derive(Debug, Clone, Copy)]
-#[allow(dead_code)]
 pub struct Config {
     /// Master switch for this feature. When false, all handlers are no-ops.
     pub enabled: bool,
