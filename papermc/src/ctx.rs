@@ -16,7 +16,9 @@ use crate::dispatch::{CommandHandler, EventHandler};
 pub(crate) type OnDisableFn =
     Box<dyn for<'a, 'local> Fn(&mut dyn Any, &mut Api<'a, 'local>) -> eyre::Result<()> + Send>;
 
-/// Reload-scoped state. Born in `plugin_init`, dropped in `plugin_on_disable`.
+/// Reload-scoped state.
+///
+/// Born in `plugin_init`, dropped in `plugin_on_disable`.
 pub(crate) struct Ctx {
     pub(crate) java_plugin: Arc<Global<JObject<'static>>>,
     pub(crate) registered_commands: Vec<Global<JObject<'static>>>,
@@ -58,8 +60,9 @@ static CTX: Mutex<Option<Ctx>> = Mutex::new(None);
 pub(crate) struct AlreadyInitialized;
 
 /// Ignore poisoning: a panic mid-mutation leaves Ctx in an unusual but not catastrophic state
-/// (each field's operations are simple inserts/takes). Bailing out would brick the plugin until
-/// the server restarts.
+/// (each field's operations are simple inserts/takes).
+///
+/// Bailing out would brick the plugin until the server restarts.
 fn lock() -> std::sync::MutexGuard<'static, Option<Ctx>> {
     CTX.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
 }

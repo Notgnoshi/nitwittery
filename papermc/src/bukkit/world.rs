@@ -6,10 +6,14 @@ use crate::bukkit::{Environment, Location};
 use crate::papermc_jobject;
 
 papermc_jobject! {
+    /// Mirrors `org.bukkit.World`.
+    ///
+    /// See <https://jd.papermc.io/paper/1.21.11/org/bukkit/World.html>.
     pub World<'local> = "org/bukkit/World";
 }
 
 impl<'local> World<'local> {
+    /// Mirrors `org.bukkit.World#getEnvironment()`.
     pub fn environment(&self, api: &mut Api<'_, 'local>) -> eyre::Result<Environment> {
         let env_obj = {
             let env = api.jni();
@@ -36,6 +40,7 @@ impl<'local> World<'local> {
         Err(eyre::eyre!("unknown World.Environment variant"))
     }
 
+    /// Mirrors `org.bukkit.World#getSpawnLocation()`.
     pub fn spawn_location(&self, api: &mut Api<'_, 'local>) -> eyre::Result<Location<'local>> {
         let env = api.jni();
         let obj = env
@@ -49,6 +54,7 @@ impl<'local> World<'local> {
         Ok(unsafe { Location::from_jobject(obj) })
     }
 
+    /// Mirrors `org.bukkit.World#getHighestBlockYAt(int, int)`.
     pub fn highest_block_y_at(
         &self,
         api: &mut Api<'_, 'local>,

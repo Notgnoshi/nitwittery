@@ -37,8 +37,9 @@ pub struct FnTable {
     /// Used to detect ABI mismatches when loading plugins compiled against different versions of
     /// this library.
     pub size: u32,
-    /// Per-plugin teardown; invoked by papermc-loader at `Java_..._on_disable` time. Returns 0
-    /// on success.
+    /// Per-plugin teardown; invoked by papermc-loader at `Java_..._on_disable` time.
+    ///
+    /// Returns 0 on success.
     pub on_disable: unsafe extern "C" fn(*mut JNIEnv) -> i32,
     /// Bukkit fired an event registered through this core; look up handler by id and invoke it.
     pub dispatch_event: unsafe extern "C" fn(*mut JNIEnv, jlong, jobject),
@@ -47,7 +48,9 @@ pub struct FnTable {
     /// Returns JNI_TRUE if handled, JNI_FALSE if Bukkit should print usage.
     pub dispatch_command:
         unsafe extern "C" fn(*mut JNIEnv, jlong, jobject, jobjectArray) -> jboolean,
-    /// Tab-completion. Returns a Java `List<String>` or null.
+    /// Tab-completion.
+    ///
+    /// Returns a Java `List<String>` or null.
     pub dispatch_tab_complete:
         unsafe extern "C" fn(*mut JNIEnv, jlong, jobject, jobjectArray) -> jobject,
     /// A Java functional-interface bridge (currently DialogActionCallback) was invoked; look up

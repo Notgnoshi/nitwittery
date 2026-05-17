@@ -6,14 +6,16 @@ use crate::api::Api;
 use crate::bukkit::Component;
 use crate::papermc_builder;
 
-/// Wrapper for an `io.papermc.paper.registry.data.dialog.DialogBase` JNI reference.
+/// Mirrors `io.papermc.paper.registry.data.dialog.DialogBase`.
+///
+/// See <https://jd.papermc.io/paper/1.21.11/io/papermc/paper/registry/data/dialog/DialogBase.html>.
 #[repr(transparent)]
 pub struct DialogBase<'local> {
     pub(crate) obj: JObject<'local>,
 }
 
 impl<'local> DialogBase<'local> {
-    /// Start a builder with the given title Component.
+    /// Mirrors `DialogBase#builder(Component)`.
     pub fn builder(
         api: &mut Api<'_, 'local>,
         title: &Component<'local>,
@@ -34,11 +36,13 @@ impl<'local> DialogBase<'local> {
 }
 
 papermc_builder! {
+    /// Mirrors `io.papermc.paper.registry.data.dialog.DialogBase.Builder`.
     pub DialogBaseBuilder<'local> -> DialogBase<'local>
         builds "()Lio/papermc/paper/registry/data/dialog/DialogBase;";
 }
 
 impl<'local> DialogBaseBuilder<'local> {
+    /// Mirrors `DialogBase.Builder#externalTitle(Component)`.
     pub fn external_title(
         self,
         api: &mut Api<'_, 'local>,
@@ -58,6 +62,7 @@ impl<'local> DialogBaseBuilder<'local> {
         Ok(self)
     }
 
+    /// Mirrors `DialogBase.Builder#canCloseWithEscape(boolean)`.
     pub fn can_close_with_escape(
         self,
         api: &mut Api<'_, 'local>,
@@ -73,6 +78,7 @@ impl<'local> DialogBaseBuilder<'local> {
         Ok(self)
     }
 
+    /// Mirrors `DialogBase.Builder#pause(boolean)`.
     pub fn pause(self, api: &mut Api<'_, 'local>, value: bool) -> eyre::Result<Self> {
         let env = api.jni();
         env.call_method(
@@ -84,6 +90,7 @@ impl<'local> DialogBaseBuilder<'local> {
         Ok(self)
     }
 
+    /// Mirrors `DialogBase.Builder#afterAction(DialogAfterAction)`.
     pub fn after_action(
         self,
         api: &mut Api<'_, 'local>,
@@ -102,6 +109,7 @@ impl<'local> DialogBaseBuilder<'local> {
         Ok(self)
     }
 
+    /// Mirrors `DialogBase.Builder#body(List<DialogBody>)`.
     pub fn body(
         self,
         api: &mut Api<'_, 'local>,
@@ -121,6 +129,7 @@ impl<'local> DialogBaseBuilder<'local> {
     }
 }
 
+/// Build a `java.util.ArrayList<DialogBody>` from a Rust slice.
 fn dialog_body_list<'local>(
     env: &mut Env<'local>,
     body: &[DialogBody<'local>],

@@ -1,6 +1,8 @@
 use crate::papermc_enum;
 
 papermc_enum! {
+    /// Mirrors `io.papermc.paper.registry.data.dialog.DialogBase.DialogAfterAction`.
+    ///
     /// Controls what happens after the player interacts with the dialog.
     pub DialogAfterAction in "io/papermc/paper/registry/data/dialog/DialogBase$DialogAfterAction" {
         Close => "CLOSE",

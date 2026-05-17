@@ -5,9 +5,11 @@ use super::DialogAction;
 use crate::api::Api;
 use crate::bukkit::Component;
 
-/// Wrapper for an `io.papermc.paper.registry.data.dialog.ActionButton` JNI reference.
+/// Mirrors `io.papermc.paper.registry.data.dialog.ActionButton`.
 ///
-/// Construct with [`ActionButton::create`] (mirrors the Java static factory) or via the
+/// See <https://jd.papermc.io/paper/1.21.11/io/papermc/paper/registry/data/dialog/ActionButton.html>.
+///
+/// Construct with [ActionButton::create] (mirrors the Java static factory) or via the
 /// Java-side `ActionButton.builder(...)`. The Builder wrapper is deferred until a caller needs
 /// finer control than `create` provides.
 #[repr(transparent)]
@@ -16,10 +18,10 @@ pub struct ActionButton<'local> {
 }
 
 impl<'local> ActionButton<'local> {
-    /// Construct an ActionButton from its full set of parameters.
+    /// Mirrors `ActionButton#create(Component, Component, int, DialogAction)`.
     ///
-    /// Mirrors `ActionButton.create(Component label, @Nullable Component tooltip, int width,
-    /// @Nullable DialogAction action)`.
+    /// `tooltip` and `action` correspond to `@Nullable` Java parameters; pass `None` to send
+    /// null across the JNI call.
     pub fn create(
         api: &mut Api<'_, 'local>,
         label: &Component<'local>,

@@ -6,10 +6,14 @@ use crate::bukkit::World;
 use crate::papermc_jobject;
 
 papermc_jobject! {
+    /// Mirrors `org.bukkit.Location`.
+    ///
+    /// See <https://jd.papermc.io/paper/1.21.11/org/bukkit/Location.html>.
     pub Location<'local> = "org/bukkit/Location";
 }
 
 impl<'local> Location<'local> {
+    /// Mirrors `org.bukkit.Location(World, double, double, double)`.
     pub fn new(
         api: &mut Api<'_, 'local>,
         world: &World<'local>,
@@ -32,6 +36,9 @@ impl<'local> Location<'local> {
         Ok(Self { obj })
     }
 
+    /// Mirrors `org.bukkit.Location#getWorld()`.
+    ///
+    /// The Java return is `@Nullable`; returns `None` for a world-less Location.
     pub fn world(&self, api: &mut Api<'_, 'local>) -> eyre::Result<Option<World<'local>>> {
         let env = api.jni();
         let obj = env
@@ -48,6 +55,7 @@ impl<'local> Location<'local> {
         Ok(Some(unsafe { World::from_jobject(obj) }))
     }
 
+    /// Mirrors `org.bukkit.Location#getX()`.
     pub fn x(&self, api: &mut Api<'_, 'local>) -> eyre::Result<f64> {
         let env = api.jni();
         Ok(env
@@ -55,6 +63,7 @@ impl<'local> Location<'local> {
             .d()?)
     }
 
+    /// Mirrors `org.bukkit.Location#getY()`.
     pub fn y(&self, api: &mut Api<'_, 'local>) -> eyre::Result<f64> {
         let env = api.jni();
         Ok(env
@@ -62,6 +71,7 @@ impl<'local> Location<'local> {
             .d()?)
     }
 
+    /// Mirrors `org.bukkit.Location#getZ()`.
     pub fn z(&self, api: &mut Api<'_, 'local>) -> eyre::Result<f64> {
         let env = api.jni();
         Ok(env
@@ -69,6 +79,7 @@ impl<'local> Location<'local> {
             .d()?)
     }
 
+    /// Mirrors `org.bukkit.Location#getBlockX()`.
     pub fn block_x(&self, api: &mut Api<'_, 'local>) -> eyre::Result<i32> {
         let env = api.jni();
         Ok(env
@@ -76,6 +87,7 @@ impl<'local> Location<'local> {
             .i()?)
     }
 
+    /// Mirrors `org.bukkit.Location#getBlockZ()`.
     pub fn block_z(&self, api: &mut Api<'_, 'local>) -> eyre::Result<i32> {
         let env = api.jni();
         Ok(env

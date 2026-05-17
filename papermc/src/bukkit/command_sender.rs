@@ -6,11 +6,15 @@ use crate::jobject_repr::JObjectRepr;
 use crate::papermc_jobject_inst;
 
 papermc_jobject_inst! {
+    /// Mirrors `org.bukkit.command.CommandSender`.
+    ///
+    /// See <https://jd.papermc.io/paper/1.21.11/org/bukkit/command/CommandSender.html>.
     pub CommandSenderInst<'local> = "org/bukkit/command/CommandSender": CommandSender;
 }
 
-/// Rust trait mirror of Bukkit's `org.bukkit.command.CommandSender` interface.
+/// Mirrors `org.bukkit.command.CommandSender`.
 pub trait CommandSender<'local>: JObjectRepr<'local> {
+    /// Mirrors `org.bukkit.command.CommandSender#getName()`.
     fn name(&self, api: &mut Api) -> eyre::Result<String> {
         let env = api.jni();
         let name_obj = env
@@ -25,8 +29,10 @@ pub trait CommandSender<'local>: JObjectRepr<'local> {
         Ok(name_jstr.try_to_string(env)?)
     }
 
-    /// Parsed as [MiniMessage](https://docs.advntr.dev/minimessage/index.html). For literal text,
-    /// use [`send_plain`](Self::send_plain).
+    /// Mirrors `net.kyori.adventure.audience.Audience#sendMessage(Component)`, parsing `msg` as
+    /// MiniMessage (<https://docs.advntr.dev/minimessage/index.html>) first.
+    ///
+    /// For literal text, use [Self::send_plain].
     fn send_message(&self, api: &mut Api, msg: impl AsRef<str>) -> eyre::Result<()> {
         let env = api.jni();
         let component = super::mini_message::deserialize(env, msg.as_ref())?;
@@ -39,6 +45,8 @@ pub trait CommandSender<'local>: JObjectRepr<'local> {
         Ok(())
     }
 
+    /// Mirrors `net.kyori.adventure.audience.Audience#sendMessage(Component)`, wrapping `msg`
+    /// as a literal `Component.text(String)` rather than parsing MiniMessage tags.
     fn send_plain(&self, api: &mut Api, msg: impl AsRef<str>) -> eyre::Result<()> {
         let env = api.jni();
         let jstr = env.new_string(msg.as_ref())?;

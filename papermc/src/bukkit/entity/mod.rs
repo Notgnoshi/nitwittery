@@ -8,8 +8,11 @@ pub use player::Player;
 pub use sheep::Sheep;
 
 papermc_jobject_inst! {
+    /// Mirrors `org.bukkit.entity.Entity`.
+    ///
+    /// See <https://jd.papermc.io/paper/1.21.11/org/bukkit/entity/Entity.html>.
     pub EntityInst<'local> = "org/bukkit/entity/Entity": Entity;
 }
 
-/// Rust trait mirror of Bukkit's `org.bukkit.entity.Entity` interface.
+/// Mirrors `org.bukkit.entity.Entity`.
 pub trait Entity<'local>: JObjectRepr<'local> {}

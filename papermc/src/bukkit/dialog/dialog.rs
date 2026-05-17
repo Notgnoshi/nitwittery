@@ -4,9 +4,12 @@ use jni::{jni_sig, jni_str};
 use super::{DialogBase, DialogType};
 use crate::api::Api;
 
-/// Wrapper for an `io.papermc.paper.dialog.Dialog` JNI reference.
+/// Mirrors `io.papermc.paper.dialog.Dialog`.
 ///
-/// Java's `Dialog.create` takes a `Consumer<RegistryBuilderFactory<...>>` lambda.
+/// See <https://jd.papermc.io/paper/1.21.11/io/papermc/paper/dialog/Dialog.html>.
+///
+/// Java's `Dialog.create` takes a `Consumer<RegistryBuilderFactory<...>>` lambda; this wrapper
+/// goes through the papermc `io.papermc.Dialogs` helper to keep the Rust call site simple.
 #[repr(transparent)]
 pub struct Dialog<'local> {
     pub(crate) obj: JObject<'local>,
@@ -15,8 +18,8 @@ pub struct Dialog<'local> {
 impl<'local> Dialog<'local> {
     /// Construct a Dialog from a DialogBase and DialogType.
     ///
-    /// Wraps the papermc `Dialogs.create(DialogBase, DialogType)` helper, which itself calls
-    /// `Dialog.create(b -> b.empty().base(base).type(type))`.
+    /// Wraps `io.papermc.Dialogs#create(DialogBase, DialogType)`, which itself calls
+    /// `io.papermc.paper.dialog.Dialog.create(b -> b.empty().base(base).type(type))`.
     pub fn create(
         api: &mut Api<'_, 'local>,
         base: &DialogBase<'local>,

@@ -61,7 +61,7 @@ unsafe extern "C" fn plugin_on_disable(env: *mut jni::sys::JNIEnv) -> i32 {
 
 /// Plugin init driver.
 ///
-/// Plugin authors write a struct that implements [`Plugin`], then call this from their C-ABI
+/// Plugin authors write a struct that implements [Plugin], then call this from their C-ABI
 /// `papermc_plugin_init` export:
 ///
 /// ```ignore
@@ -78,7 +78,7 @@ unsafe extern "C" fn plugin_on_disable(env: *mut jni::sys::JNIEnv) -> i32 {
 //
 // `init` is invoked from a plugin's C-ABI `papermc_plugin_init` symbol with raw pointers handed to
 // it by the JVM. JNI's calling convention is the contract for those pointers being valid; null is
-// null-checked inside [`ffi::bridge`]. Keeping this function safe at the Rust level lets plugin
+// null-checked inside [ffi::bridge]. Keeping this function safe at the Rust level lets plugin
 // authors write `papermc::init::<MyPlugin>(env, plugin)` without an unsafe wrapper at the call
 // site.
 #[allow(clippy::not_unsafe_ptr_arg_deref)]

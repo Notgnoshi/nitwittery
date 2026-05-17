@@ -23,11 +23,12 @@ pub trait Event: 'static {
     /// Slash-delimited JVM class name, e.g. `"org/bukkit/event/player/PlayerInteractEntityEvent"`.
     const CLASS_NAME: &'static str;
 
-    /// Verify `obj` is an instance of `CLASS_NAME` and reinterpret as `&Wrapper`. Returns
-    /// `Err(WrongObjectType)` if the check fails.
+    /// Verify `obj` is an instance of `CLASS_NAME` and reinterpret as `&Wrapper`.
+    ///
+    /// Returns `Err(WrongObjectType)` if the check fails.
     ///
     /// The default impl is appropriate for every event whose `Wrapper` is a `#[repr(transparent)]`
-    /// newtype over `JObject<'local>` (which the [`JObjectRepr`] bound already requires); there's
+    /// newtype over `JObject<'local>` (which the [JObjectRepr] bound already requires); there's
     /// no reason to override it.
     fn wrap<'a, 'local>(
         env: &mut Env<'_>,

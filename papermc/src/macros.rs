@@ -1,6 +1,7 @@
 /// Define a `#[repr(transparent)]` JObject wrapper, its `JObjectRepr` + `JClassCast` impls, and
-/// empty impls for each facet trait listed. Each facet trait must already be in scope at the
-/// call site.
+/// empty impls for each facet trait listed.
+///
+/// Each facet trait must already be in scope at the call site.
 ///
 /// ```ignore
 /// use crate::bukkit::{Audience, CommandSender, Entity};
@@ -66,7 +67,7 @@ macro_rules! papermc_jobject_inst {
         #[doc = ""]
         #[doc = concat!(
             "Type-erased JNI wrapper for `", $class, "`. ",
-            "Use [`Self::cast`] to narrow to a more specific subtype."
+            "Use [Self::cast] to narrow to a more specific subtype."
         )]
         #[repr(transparent)]
         $vis struct $name<'local> {
@@ -105,9 +106,10 @@ macro_rules! papermc_jobject_inst {
     };
 }
 
-/// Define a Bukkit event marker plus its `#[repr(transparent)]` JObject wrapper. The marker is
-/// the type passed to `SetupApi::register_event::<Marker>(...)`; the wrapper is what handlers
-/// receive.
+/// Define a Bukkit event marker plus its `#[repr(transparent)]` JObject wrapper.
+///
+/// The marker is the type passed to `SetupApi::register_event::<Marker>(...)`; the wrapper is
+/// what handlers receive.
 ///
 /// ```ignore
 /// papermc_event! {
@@ -150,8 +152,9 @@ macro_rules! papermc_event {
     };
 }
 
-/// Define a fluent builder wrapper plus its `build()` method. Setters are not templated; write
-/// them in a separate `impl` block.
+/// Define a fluent builder wrapper plus its `build()` method.
+///
+/// Setters are not templated; write them in a separate `impl` block.
 ///
 /// ```ignore
 /// papermc_builder! {
@@ -176,7 +179,7 @@ macro_rules! papermc_builder {
     ) => {
         $(#[$attr])*
         #[doc = ""]
-        #[doc = concat!("Builder for [`", stringify!($out), "`].")]
+        #[doc = concat!("Builder for [", stringify!($out), "].")]
         #[repr(transparent)]
         $vis struct $name<'local> {
             pub(crate) obj: ::jni::objects::JObject<'local>,
@@ -185,7 +188,7 @@ macro_rules! papermc_builder {
         unsafe impl<'local> $crate::jobject_repr::JObjectRepr<'local> for $name<'local> {}
 
         impl<'local> $name<'local> {
-            #[doc = concat!("Finalize and return a [`", stringify!($out), "`].")]
+            #[doc = concat!("Finalize and return a [", stringify!($out), "].")]
             pub fn build(
                 self,
                 api: &mut $crate::Api<'_, 'local>,
