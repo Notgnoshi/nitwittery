@@ -4,11 +4,21 @@ use jni::objects::JObject;
 use crate::ctx;
 use crate::jobject_repr::JObjectRepr;
 
+mod async_player_spawn_location_event;
 mod entity_damage_by_entity_event;
 mod player_interact_entity_event;
+mod player_join_event;
+mod player_post_respawn_event;
+mod player_respawn_event;
 
+pub use async_player_spawn_location_event::{
+    AsyncPlayerSpawnLocationEvent, AsyncPlayerSpawnLocationEventRef,
+};
 pub use entity_damage_by_entity_event::{EntityDamageByEntityEvent, EntityDamageByEntityEventRef};
 pub use player_interact_entity_event::{PlayerInteractEntityEvent, PlayerInteractEntityEventRef};
+pub use player_join_event::{PlayerJoinEvent, PlayerJoinEventRef};
+pub use player_post_respawn_event::{PlayerPostRespawnEvent, PlayerPostRespawnEventRef};
+pub use player_respawn_event::{PlayerRespawnEvent, PlayerRespawnEventRef};
 
 /// Trait implemented by event marker types.
 ///
