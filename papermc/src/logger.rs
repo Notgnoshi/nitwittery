@@ -2,7 +2,7 @@
 //!
 //! Each cdylib that links papermc has its own copy of `tracing-core`'s global dispatch (because
 //! `tracing-core` is statically linked into every cdylib), so each cdylib installs its own
-//! subscriber: papermc-loader from `JNI_OnLoad`, plugin cdylibs from [`crate::init`].
+//! subscriber: papermc-loader from `JNI_OnLoad`, plugin cdylibs from [crate::init].
 //!
 //! `RUST_LOG` is read once at first cdylib install. Server restart required to pick up changes.
 
@@ -19,7 +19,9 @@ use tracing_subscriber::layer::Context;
 static JVM: OnceLock<JavaVM> = OnceLock::new();
 static DISPATCHER_CLASS: ArcSwapOption<Global<JClass<'static>>> = ArcSwapOption::const_empty();
 
-/// Idempotent within a cdylib. Called from papermc-loader's `JNI_OnLoad` and from [`crate::init`].
+/// Idempotent within a cdylib.
+///
+/// Called from papermc-loader's `JNI_OnLoad` and from [crate::init].
 pub fn install_subscriber(jvm: JavaVM) {
     let _ = JVM.set(jvm);
     static SUBSCRIBER_INIT: std::sync::Once = std::sync::Once::new();

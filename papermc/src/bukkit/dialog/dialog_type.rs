@@ -4,7 +4,9 @@ use jni::{jni_sig, jni_str};
 use super::ActionButton;
 use crate::api::Api;
 
-/// Wrapper for an `io.papermc.paper.registry.data.dialog.type.DialogType` JNI reference.
+/// Mirrors `io.papermc.paper.registry.data.dialog.type.DialogType`.
+///
+/// See <https://jd.papermc.io/paper/1.21.11/io/papermc/paper/registry/data/dialog/type/DialogType.html>.
 ///
 /// Java's `DialogType` static factories return concrete subtypes (`NoticeType`,
 /// `ConfirmationType`, `MultiActionType`, etc.); we wrap them all as `DialogType` since the
@@ -21,7 +23,8 @@ const TYPE_CLASS: &jni::strings::JNIStr =
     jni_str!("io/papermc/paper/registry/data/dialog/type/DialogType");
 
 impl<'local> DialogType<'local> {
-    /// `DialogType.notice()` -- a single "OK"-style notice with the default acknowledge button.
+    /// Mirrors `DialogType#notice()`.
+    /// A single "OK"-style notice with the default acknowledge button.
     pub fn notice(api: &mut Api<'_, 'local>) -> eyre::Result<Self> {
         let env = api.jni();
         let obj = env
@@ -35,7 +38,8 @@ impl<'local> DialogType<'local> {
         Ok(Self { obj })
     }
 
-    /// `DialogType.notice(ActionButton)` -- a notice with a custom acknowledge button.
+    /// Mirrors `DialogType#notice(ActionButton)`.
+    /// A notice with a custom acknowledge button.
     pub fn notice_with(
         api: &mut Api<'_, 'local>,
         action: &ActionButton<'local>,
@@ -54,7 +58,8 @@ impl<'local> DialogType<'local> {
         Ok(Self { obj })
     }
 
-    /// `DialogType.confirmation(yes, no)` -- two buttons side by side.
+    /// Mirrors `DialogType#confirmation(ActionButton, ActionButton)`.
+    /// Two buttons side by side.
     pub fn confirmation(
         api: &mut Api<'_, 'local>,
         yes: &ActionButton<'local>,
@@ -74,7 +79,8 @@ impl<'local> DialogType<'local> {
         Ok(Self { obj })
     }
 
-    /// `DialogType.multiAction(List<ActionButton>)` -- multiple buttons arranged in a grid.
+    /// Mirrors `DialogType#multiAction(List<ActionButton>)`.
+    /// Multiple buttons arranged in a grid.
     ///
     /// The 2-arg Java overload returns a `MultiActionType.Builder`; we call `.build()` on it
     /// here to materialize a `MultiActionType` with default exit-action / columns.

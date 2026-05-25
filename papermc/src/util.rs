@@ -7,8 +7,9 @@ use jni::strings::JNIStr;
 
 use crate::ctx;
 
-/// Look up a static enum field on a Java class. The class is resolved through the per-load class
-/// cache so repeated lookups skip `FindClass`.
+/// Look up a static enum field on a Java class.
+///
+/// The class is resolved through the per-load class cache so repeated lookups skip `FindClass`.
 pub fn get_static_enum_field<'local>(
     env: &mut Env<'local>,
     class_name: &'static str,

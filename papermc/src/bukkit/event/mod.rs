@@ -4,11 +4,21 @@ use jni::objects::JObject;
 use crate::ctx;
 use crate::jobject_repr::JObjectRepr;
 
+mod async_player_spawn_location_event;
 mod entity_damage_by_entity_event;
 mod player_interact_entity_event;
+mod player_join_event;
+mod player_post_respawn_event;
+mod player_respawn_event;
 
+pub use async_player_spawn_location_event::{
+    AsyncPlayerSpawnLocationEvent, AsyncPlayerSpawnLocationEventRef,
+};
 pub use entity_damage_by_entity_event::{EntityDamageByEntityEvent, EntityDamageByEntityEventRef};
 pub use player_interact_entity_event::{PlayerInteractEntityEvent, PlayerInteractEntityEventRef};
+pub use player_join_event::{PlayerJoinEvent, PlayerJoinEventRef};
+pub use player_post_respawn_event::{PlayerPostRespawnEvent, PlayerPostRespawnEventRef};
+pub use player_respawn_event::{PlayerRespawnEvent, PlayerRespawnEventRef};
 
 /// Trait implemented by event marker types.
 ///
@@ -23,11 +33,12 @@ pub trait Event: 'static {
     /// Slash-delimited JVM class name, e.g. `"org/bukkit/event/player/PlayerInteractEntityEvent"`.
     const CLASS_NAME: &'static str;
 
-    /// Verify `obj` is an instance of `CLASS_NAME` and reinterpret as `&Wrapper`. Returns
-    /// `Err(WrongObjectType)` if the check fails.
+    /// Verify `obj` is an instance of `CLASS_NAME` and reinterpret as `&Wrapper`.
+    ///
+    /// Returns `Err(WrongObjectType)` if the check fails.
     ///
     /// The default impl is appropriate for every event whose `Wrapper` is a `#[repr(transparent)]`
-    /// newtype over `JObject<'local>` (which the [`JObjectRepr`] bound already requires); there's
+    /// newtype over `JObject<'local>` (which the [JObjectRepr] bound already requires); there's
     /// no reason to override it.
     fn wrap<'a, 'local>(
         env: &mut Env<'_>,

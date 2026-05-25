@@ -12,17 +12,21 @@ use jni::strings::JNIStr;
 use crate::api::Api;
 use crate::callbacks::BiConsumerFn;
 use crate::dispatch::{CommandHandler, EventHandler};
+use crate::sync_call::SyncCallbackFn;
 
 pub(crate) type OnDisableFn =
     Box<dyn for<'a, 'local> Fn(&mut dyn Any, &mut Api<'a, 'local>) -> eyre::Result<()> + Send>;
 
-/// Reload-scoped state. Born in `plugin_init`, dropped in `plugin_on_disable`.
+/// Reload-scoped state.
+///
+/// Born in `plugin_init`, dropped in `plugin_on_disable`.
 pub(crate) struct Ctx {
     pub(crate) java_plugin: Arc<Global<JObject<'static>>>,
     pub(crate) registered_commands: Vec<Global<JObject<'static>>>,
     pub(crate) event_handlers: HashMap<i64, EventHandler>,
     pub(crate) command_handlers: HashMap<i64, CommandHandler>,
     pub(crate) callbacks: HashMap<i64, BiConsumerFn>,
+    pub(crate) sync_callbacks: HashMap<i64, SyncCallbackFn>,
     pub(crate) mini_message: Option<Arc<Global<JObject<'static>>>>,
     jni_cache: HashMap<&'static str, Arc<Global<JClass<'static>>>>,
     pub(crate) rust_plugin: Option<Box<dyn Any + Send>>,
@@ -37,6 +41,7 @@ impl Ctx {
             event_handlers: HashMap::new(),
             command_handlers: HashMap::new(),
             callbacks: HashMap::new(),
+            sync_callbacks: HashMap::new(),
             mini_message: None,
             jni_cache: HashMap::new(),
             rust_plugin: None,
@@ -58,8 +63,9 @@ static CTX: Mutex<Option<Ctx>> = Mutex::new(None);
 pub(crate) struct AlreadyInitialized;
 
 /// Ignore poisoning: a panic mid-mutation leaves Ctx in an unusual but not catastrophic state
-/// (each field's operations are simple inserts/takes). Bailing out would brick the plugin until
-/// the server restarts.
+/// (each field's operations are simple inserts/takes).
+///
+/// Bailing out would brick the plugin until the server restarts.
 fn lock() -> std::sync::MutexGuard<'static, Option<Ctx>> {
     CTX.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
 }

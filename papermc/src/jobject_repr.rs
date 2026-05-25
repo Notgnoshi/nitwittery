@@ -3,11 +3,11 @@ use jni::objects::JObject;
 
 /// # Safety
 ///
-/// Implementor must be a `#[repr(transparent)]` wrapper over `JObject<'local>`. The trait's default
-/// methods rely on this for sound pointer reinterpretation.
+/// Implementor must be a `#[repr(transparent)]` wrapper over `JObject<'local>`. The trait's
+/// default methods rely on this for sound pointer reinterpretation.
 ///
 /// A manual `Drop` impl on the wrapper must not do anything beyond what `JObject<'local>`'s `Drop`
-/// already does; otherwise [`JObjectRepr::from_jobject`] will not double-drop but will silently
+/// already does; otherwise [JObjectRepr::from_jobject] will not double-drop but will silently
 /// substitute the wrapper's drop for the JObject's.
 pub unsafe trait JObjectRepr<'local>: Sized {
     const _LAYOUT_CHECK: () = assert!(

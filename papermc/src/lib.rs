@@ -14,6 +14,7 @@ mod plugin;
 mod plugin_init;
 mod registration;
 mod setup_api;
+mod sync_call;
 pub mod util;
 
 pub use api::Api;
@@ -24,7 +25,7 @@ pub use setup_api::SetupApi;
 /// ABI version of the `FnTable` struct.
 ///
 /// Bump when adding fields. Loaders refuse to load plugins with a mismatched version.
-pub const PLUGIN_ABI_VERSION: u32 = 2;
+pub const PLUGIN_ABI_VERSION: u32 = 3;
 
 /// The function-pointer table that plugins hand back to `papermc-loader` at init time.
 ///
@@ -37,8 +38,9 @@ pub struct FnTable {
     /// Used to detect ABI mismatches when loading plugins compiled against different versions of
     /// this library.
     pub size: u32,
-    /// Per-plugin teardown; invoked by papermc-loader at `Java_..._on_disable` time. Returns 0
-    /// on success.
+    /// Per-plugin teardown; invoked by papermc-loader at `Java_..._on_disable` time.
+    ///
+    /// Returns 0 on success.
     pub on_disable: unsafe extern "C" fn(*mut JNIEnv) -> i32,
     /// Bukkit fired an event registered through this core; look up handler by id and invoke it.
     pub dispatch_event: unsafe extern "C" fn(*mut JNIEnv, jlong, jobject),
@@ -47,12 +49,18 @@ pub struct FnTable {
     /// Returns JNI_TRUE if handled, JNI_FALSE if Bukkit should print usage.
     pub dispatch_command:
         unsafe extern "C" fn(*mut JNIEnv, jlong, jobject, jobjectArray) -> jboolean,
-    /// Tab-completion. Returns a Java `List<String>` or null.
+    /// Tab-completion.
+    ///
+    /// Returns a Java `List<String>` or null.
     pub dispatch_tab_complete:
         unsafe extern "C" fn(*mut JNIEnv, jlong, jobject, jobjectArray) -> jobject,
     /// A Java functional-interface bridge (currently DialogActionCallback) was invoked; look up
     /// the Rust closure by id and run it with the two object arguments.
     pub dispatch_bi_consumer: unsafe extern "C" fn(*mut JNIEnv, jlong, jobject, jobject),
+    /// `RustCallable.bridgeDispatch(long id)` was invoked on the main thread.
+    ///
+    /// Look up the Rust closure registered under `id` and run it.
+    pub dispatch_callable: unsafe extern "C" fn(*mut JNIEnv, jlong),
     /// Java's Cleaner signalled that a bridge instance was GC'd; drop the Rust closure with the
     /// given id from the callback registry.
     pub drop_callback: unsafe extern "C" fn(jlong),

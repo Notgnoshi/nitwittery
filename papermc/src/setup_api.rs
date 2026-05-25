@@ -33,7 +33,7 @@ fn actual_class_name(env: &mut Env<'_>, obj: &JObject<'_>) -> String {
 /// Plugin setup wrapper around [Api].
 ///
 /// Exposes registration methods (`register_event`, `register_command`, ...) that are only valid
-/// during [Plugin::on_enable]. After `on_enable` returns, plugin handlers receive a plain [`Api`]
+/// during [Plugin::on_enable]. After `on_enable` returns, plugin handlers receive a plain [Api]
 /// without registration methods.
 ///
 /// Use [SetupApi::api] if a runtime [Api] method is needed during setup (for example, to look up a
@@ -56,7 +56,9 @@ impl<'a, 'local, P: Plugin> SetupApi<'a, 'local, P> {
         &mut self.api
     }
 
-    /// Register a Bukkit event handler. Handler errors are logged and discarded.
+    /// Register a Bukkit event handler.
+    ///
+    /// Handler errors are logged and discarded.
     pub fn register_event<E, F>(&mut self, handler: F) -> eyre::Result<()>
     where
         E: Event,
@@ -102,8 +104,9 @@ impl<'a, 'local, P: Plugin> SetupApi<'a, 'local, P> {
         Ok(())
     }
 
-    /// Register a Bukkit command handler. Handler errors are logged and treated as `false`
-    /// (Bukkit will print usage).
+    /// Register a Bukkit command handler.
+    ///
+    /// Handler errors are logged and treated as `false` (Bukkit will print usage).
     pub fn register_command<F>(&mut self, name: &str, handler: F) -> eyre::Result<()>
     where
         F: for<'b, 'l> Fn(
@@ -151,7 +154,9 @@ impl<'a, 'local, P: Plugin> SetupApi<'a, 'local, P> {
 }
 
 /// Take the plugin out of `Ctx`, downcast to `P`, run `body(&mut p, env)`, then put the plugin
-/// back. Returns `None` if no plugin is currently present.
+/// back.
+///
+/// Returns `None` if no plugin is currently present.
 ///
 /// A panic in `body` is caught so the plugin Box is returned to `Ctx` before propagating up to
 /// `ffi::bridge`. The plugin's post-panic state may be partially-mutated (which is why we wrap in

@@ -5,11 +5,16 @@ use crate::bukkit::{EntityInst, Player};
 use crate::papermc_event;
 
 papermc_event! {
+    /// Mirrors `org.bukkit.event.entity.EntityDamageByEntityEvent`.
+    ///
+    /// See <https://jd.papermc.io/paper/1.21.11/org/bukkit/event/entity/EntityDamageByEntityEvent.html>.
     pub EntityDamageByEntityEvent => EntityDamageByEntityEventRef
         = "org/bukkit/event/entity/EntityDamageByEntityEvent";
 }
 
 impl<'local> EntityDamageByEntityEventRef<'local> {
+    /// Mirrors `org.bukkit.event.entity.EntityEvent#getEntity()`.
+    ///
     /// The entity being damaged.
     pub fn entity(&self, api: &mut Api<'_, 'local>) -> eyre::Result<EntityInst<'local>> {
         let env = api.jni();
@@ -24,8 +29,10 @@ impl<'local> EntityDamageByEntityEventRef<'local> {
         Ok(EntityInst::new(entity))
     }
 
-    /// The entity that dealt the damage. For projectile damage this is the projectile itself;
-    /// see [`player_attacker`](Self::player_attacker) for the shooter.
+    /// Mirrors `EntityDamageByEntityEvent#getDamager()`.
+    ///
+    /// For projectile damage this is the projectile itself; see [Self::player_attacker] for the
+    /// shooter.
     pub fn damager(&self, api: &mut Api<'_, 'local>) -> eyre::Result<EntityInst<'local>> {
         let env = api.jni();
         let entity = env
@@ -39,7 +46,10 @@ impl<'local> EntityDamageByEntityEventRef<'local> {
         Ok(EntityInst::new(entity))
     }
 
-    /// Walks one level of `Projectile.getShooter()` so projectile damage attributes to the player.
+    /// Walks one level of `org.bukkit.entity.Projectile#getShooter()` so projectile damage
+    /// attributes to the player.
+    ///
+    /// Returns `None` if the damager is not a player and not a projectile shot by a player.
     pub fn player_attacker(
         &self,
         api: &mut Api<'_, 'local>,

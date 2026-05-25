@@ -6,13 +6,16 @@ use jni::{jni_sig, jni_str};
 use crate::api::Api;
 use crate::papermc_builder;
 
-/// Wrapper for `net.kyori.adventure.text.event.ClickCallback$Options`.
+/// Mirrors `net.kyori.adventure.text.event.ClickCallback.Options`.
+///
+/// See <https://jd.advntr.dev/api/latest/net/kyori/adventure/text/event/ClickCallback.Options.html>.
 #[repr(transparent)]
 pub struct ClickCallbackOptions<'local> {
     pub(crate) obj: JObject<'local>,
 }
 
 impl<'local> ClickCallbackOptions<'local> {
+    /// Mirrors `net.kyori.adventure.text.event.ClickCallback.Options#builder()`.
     pub fn builder(api: &mut Api<'_, 'local>) -> eyre::Result<ClickCallbackOptionsBuilder<'local>> {
         let env = api.jni();
         let obj = env
@@ -28,11 +31,13 @@ impl<'local> ClickCallbackOptions<'local> {
 }
 
 papermc_builder! {
+    /// Mirrors `net.kyori.adventure.text.event.ClickCallback.Options.Builder`.
     pub ClickCallbackOptionsBuilder<'local> -> ClickCallbackOptions<'local>
         builds "()Lnet/kyori/adventure/text/event/ClickCallback$Options;";
 }
 
 impl<'local> ClickCallbackOptionsBuilder<'local> {
+    /// Mirrors `ClickCallback.Options.Builder#uses(int)`.
     pub fn uses(self, api: &mut Api<'_, 'local>, count: i32) -> eyre::Result<Self> {
         let env = api.jni();
         env.call_method(
@@ -44,7 +49,8 @@ impl<'local> ClickCallbackOptionsBuilder<'local> {
         Ok(self)
     }
 
-    /// Converts the Rust Duration to a Java `Duration`, which implements `TemporalAmount`.
+    /// Mirrors `ClickCallback.Options.Builder#lifetime(TemporalAmount)`.
+    /// Converts the Rust `Duration` to a `java.time.Duration`, which implements `TemporalAmount`.
     pub fn lifetime(self, api: &mut Api<'_, 'local>, duration: Duration) -> eyre::Result<Self> {
         let env = api.jni();
         let java_duration = env

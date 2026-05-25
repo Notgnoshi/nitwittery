@@ -37,11 +37,15 @@ pub(crate) unsafe extern "C" fn dispatch_bi_consumer(
     });
 }
 
-/// Trampoline target for the `RustDialogActionCallback.bridgeDrop` native method.
+/// Trampoline target for the `bridgeDrop` native methods on every Java callback shim.
 ///
-/// Called from Java's Cleaner after the bridge instance is unreachable.
+/// Called from Java's Cleaner after the bridge instance is unreachable. The same FnTable entry
+/// serves both `RustDialogActionCallback` (BiConsumer) and `RustCallable` (sync callable), so we
+/// remove from both registries. Ids are unique across registries (allocated from one
+/// [crate::ctx::next_id] counter), so removing from both is safe.
 pub(crate) unsafe extern "C" fn drop_callback(id: jlong) {
     ctx::with_ctx(|c| {
         c.callbacks.remove(&id);
+        c.sync_callbacks.remove(&id);
     });
 }

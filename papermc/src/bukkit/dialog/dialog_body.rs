@@ -4,10 +4,12 @@ use jni::{jni_sig, jni_str};
 use crate::api::Api;
 use crate::bukkit::Component;
 
-/// Wrapper for an `io.papermc.paper.registry.data.dialog.body.DialogBody` JNI reference.
+/// Mirrors `io.papermc.paper.registry.data.dialog.body.DialogBody`.
+///
+/// See <https://jd.papermc.io/paper/1.21.11/io/papermc/paper/registry/data/dialog/body/DialogBody.html>.
 ///
 /// Use the static factory methods to construct concrete body types. Currently only
-/// [`DialogBody::plain_message`] is wrapped; `DialogBody.item(...)` requires an `ItemStack`
+/// [DialogBody::plain_message] is wrapped; `DialogBody.item(...)` requires an `ItemStack`
 /// wrapper and is deferred.
 #[repr(transparent)]
 pub struct DialogBody<'local> {
@@ -15,9 +17,7 @@ pub struct DialogBody<'local> {
 }
 
 impl<'local> DialogBody<'local> {
-    /// Construct a plain-message body from a Component.
-    ///
-    /// Mirrors `DialogBody.plainMessage(Component)`.
+    /// Mirrors `DialogBody#plainMessage(Component)`.
     pub fn plain_message(
         api: &mut Api<'_, 'local>,
         text: &Component<'local>,
@@ -36,9 +36,7 @@ impl<'local> DialogBody<'local> {
         Ok(Self { obj })
     }
 
-    /// Construct a plain-message body from a Component with an explicit pixel width.
-    ///
-    /// Mirrors `DialogBody.plainMessage(Component, int)`.
+    /// Mirrors `DialogBody#plainMessage(Component, int)`.
     pub fn plain_message_with_width(
         api: &mut Api<'_, 'local>,
         text: &Component<'local>,

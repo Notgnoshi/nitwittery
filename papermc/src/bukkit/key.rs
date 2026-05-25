@@ -3,7 +3,9 @@ use jni::{jni_sig, jni_str};
 
 use crate::api::Api;
 
-/// Wrapper for a `net.kyori.adventure.key.Key` JNI reference.
+/// Mirrors `net.kyori.adventure.key.Key`.
+///
+/// See <https://jd.advntr.dev/key/latest/net/kyori/adventure/key/Key.html>.
 #[repr(transparent)]
 pub struct Key<'local> {
     pub(crate) obj: JObject<'local>,
@@ -14,8 +16,9 @@ pub struct Key<'local> {
 // is a non-issue here.
 #[allow(clippy::self_named_constructors)]
 impl<'local> Key<'local> {
-    /// Construct a Key from a namespace and value, e.g. `Key::key(api, "myplugin", "my_value")`
-    /// for `myplugin:my_value`.
+    /// Mirrors `net.kyori.adventure.key.Key#key(String, String)`.
+    ///
+    /// E.g. `Key::key(api, "myplugin", "my_value")` for `myplugin:my_value`.
     pub fn key(api: &mut Api<'_, 'local>, namespace: &str, value: &str) -> eyre::Result<Self> {
         let env = api.jni();
         let ns = env.new_string(namespace)?;
