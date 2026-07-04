@@ -22,21 +22,7 @@ public class RustReloadablePlugin extends JavaPlugin implements Listener {
 
     @Override
     public void onEnable() {
-        // Normalize `-` to `_` so the key matches what Cargo produces for crate
-        // names containing dashes (Cargo rewrites `-` to `_` in the cdylib
-        // filename).
-        String pluginKey = getName().toLowerCase(Locale.ROOT).replace('-', '_');
-        ClassLoader cl = getClass().getClassLoader();
-        String loaderPath = NativeLoader.locate("libpapermc_loader.so", "papermc.loader.path",
-                pluginKey, cl);
-        String pluginPath = NativeLoader.locate("lib" + pluginKey + "_plugin.so",
-                "papermc.loader.plugin.path." + pluginKey, pluginKey, cl);
-
-        NativeLoader.load(loaderPath);
-        RustTracingSubscriber.install(getLogger());
-        RustPlugin.on_enable(pluginPath, this);
-
-        getServer().getPluginManager().registerEvents(this, this);
+        enableRustSide();
     }
 
     @Override
@@ -45,17 +31,38 @@ public class RustReloadablePlugin extends JavaPlugin implements Listener {
     }
 
     /**
-     * Hook /reload so it cycles us. Defer one tick so the event-handling stack
-     * unwinds before we disable ourselves. Re-enable runs in the same scheduled
-     * task.
+     * Stage and load the native libraries, then bring up the Rust side.
+     */
+    private void enableRustSide() {
+        // Normalize `-` to `_` so the key matches what Cargo produces for crate
+        // names containing dashes (Cargo rewrites `-` to `_` in the cdylib
+        // filename).
+        String pluginKey = getName().toLowerCase(Locale.ROOT).replace('-', '_');
+        ClassLoader cl = getClass().getClassLoader();
+        String loaderPath = NativeLoader.locate("libpapermc_loader.so", "papermc.loader.path",
+                pluginKey, cl);
+        String stagedPluginPath = NativeLoader.locate("lib" + pluginKey + "_plugin.so",
+                "papermc.loader.plugin.path." + pluginKey, pluginKey, cl);
+        String pluginPath = NativeLoader.stageVersioned(stagedPluginPath);
+
+        NativeLoader.load(loaderPath);
+        RustTracingSubscriber.install(getLogger());
+        RustPlugin.on_enable(pluginPath, this);
+
+        getServer().getPluginManager().registerEvents(this, this);
+    }
+
+    /**
+     * Hook /reload so it cycles the Rust side. Defer one tick so the event-handling
+     * stack unwinds before teardown.
      */
     @EventHandler
     public void onResourcesReloaded(ServerResourcesReloadedEvent event) {
-        getLogger().info("ServerResourcesReloadedEvent (cause=" + event.getCause() + "): cycling "
-                + getName());
+        getLogger().info("ServerResourcesReloadedEvent (cause=" + event.getCause()
+                + "): cycling the Rust side of " + getName());
         Bukkit.getScheduler().runTaskLater(this, () -> {
-            Bukkit.getPluginManager().disablePlugin(this);
-            Bukkit.getPluginManager().enablePlugin(this);
+            RustPlugin.on_disable();
+            enableRustSide();
         }, 1L);
     }
 }

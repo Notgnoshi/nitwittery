@@ -17,8 +17,8 @@ Nitwittery's goal is to make Minecraft villagers / villages more interesting.
 
   The loader then `dlopen`s the `libnitwittery_plugin.so`, which is where the plugin's actual Rust
   code lives. The extra hop exists because the JVM cannot unload a native DSO once it has been
-  loaded: a stable, never-unloaded loader can `dlclose` and re-`dlopen` the plugin .so to support
-  `/reload` without restarting the server.
+  loaded: a stable, never-unloaded loader can `dlclose` the old plugin .so and `dlopen` a freshly
+  staged copy to support `/reload` without restarting the server.
 
   papermc-loader/ is meant to be stable. New plugin functionality should not require changes here;
   it exists only to broker the Java <-> plugin handoff.
@@ -42,6 +42,10 @@ The JVM cannot unload a native DSO. papermc-loader is the never-unloaded stub th
 `dlclose`s the plugin DSO in the `/reload` cycle, so that iterating on Rust code only requires
 `/reload` rather than a server restart.
 
+**NOTE:** It's possible that `dlclose` doesn't actually unload the DSO. In this case, even if you
+replace the DSO on disk, the next `dlopen` will return the old library. So the `NativeLoader` adds a
+counter suffix on the plugin .so filename to ensure each reload loads a new copy of the library.
+
 ```mermaid
 sequenceDiagram
     participant JVM
@@ -58,13 +62,13 @@ sequenceDiagram
     Note over Plugin: Plugin::on_enable
 
     Note over JVM,Plugin: /reload
-    JVM->>RRP: onDisable
+    JVM->>RRP: ServerResourcesReloadedEvent
     RRP->>Loader: RustPlugin.on_disable (JNI)
     Loader->>Plugin: Plugin::on_disable
-    Plugin-->>Loader: dlclose (after in-flight Arcs drop)
-    JVM->>RRP: onEnable
+    Plugin-->>Loader: dlclose (mapping stays pinned)
+    Note over RRP: stage plugin .so at next versioned path
     RRP->>Loader: RustPlugin.on_enable (JNI)
-    Loader->>Plugin: dlopen + papermc_plugin_init
+    Loader->>Plugin: dlopen .so.{N} + papermc_plugin_init
     Note over Plugin: Plugin::on_enable
 
     Note over JVM,Plugin: server stop
