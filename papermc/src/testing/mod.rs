@@ -2,6 +2,7 @@ use linkme::distributed_slice;
 
 use crate::api::Api;
 
+mod args;
 mod runner;
 mod selftest;
 

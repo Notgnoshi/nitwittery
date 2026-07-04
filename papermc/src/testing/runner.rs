@@ -8,7 +8,7 @@ use jni::{Env, jni_sig, jni_str};
 use crate::api::Api;
 use crate::bukkit::{CommandSender as _, CommandSenderInst};
 use crate::jobject_repr::JClassCast as _;
-use crate::testing::{TESTS, TestCase, TestCtx, TestOutcome};
+use crate::testing::{TESTS, TestCase, TestCtx, TestOutcome, args};
 use crate::{ctx, registration};
 
 /// Register the `/test` command.
@@ -20,8 +20,8 @@ pub(crate) fn register_test_command(env: &mut Env<'_>) -> eyre::Result<()> {
     ctx::with_ctx(|c| {
         c.command_handlers.insert(
             id,
-            Arc::new(|env, sender_obj, _args| {
-                if let Err(e) = run_battery(env, sender_obj) {
+            Arc::new(|env, sender_obj, args| {
+                if let Err(e) = run_battery(env, sender_obj, args) {
                     tracing::error!("/test battery failed to run: {e:?}");
                 }
                 true
@@ -30,15 +30,42 @@ pub(crate) fn register_test_command(env: &mut Env<'_>) -> eyre::Result<()> {
     })
     .expect("Ctx installed during plugin_init");
     registration::register_command(env, "test", Some("papermc.test"), id)?;
+    tracing::debug!("registered /test with handler id {id}");
     Ok(())
 }
 
-fn run_battery(env: &mut Env<'_>, sender_obj: &JObject<'_>) -> eyre::Result<()> {
+fn run_battery(env: &mut Env<'_>, sender_obj: &JObject<'_>, args: &[String]) -> eyre::Result<()> {
     let plugin = plugin_name(env)?;
     let sender = CommandSenderInst::wrap_ref(env, sender_obj)?;
 
-    let mut cases: Vec<&TestCase> = TESTS.iter().collect();
+    let spec = match args::parse(args) {
+        Ok(spec) => spec,
+        Err(message) => {
+            for line in message.lines() {
+                emit(env, sender, &format!("[{plugin}] {line}"));
+            }
+            return Ok(());
+        }
+    };
+
+    let mut cases: Vec<&TestCase> = TESTS
+        .iter()
+        .filter(|c| args::matches(&spec, c.name))
+        .collect();
     cases.sort_by_key(|c| c.name);
+
+    if spec.list {
+        for case in &cases {
+            emit(env, sender, &format!("[{plugin}] {}: test", case.name));
+        }
+        let plural = if cases.len() == 1 { "" } else { "s" };
+        emit(
+            env,
+            sender,
+            &format!("[{plugin}] {} test{plural}", cases.len()),
+        );
+        return Ok(());
+    }
 
     let start = Instant::now();
     let plural = if cases.len() == 1 { "" } else { "s" };
@@ -110,8 +137,16 @@ fn run_battery(env: &mut Env<'_>, sender_obj: &JObject<'_>) -> eyre::Result<()> 
         }
     }
 
-    // A battery that found no tests is a failure: it almost certainly means registry entries
-    // were stripped at link time rather than that nobody wrote tests.
+    // A battery that found no tests is a failure: with filters it means a typo'd filter; without
+    // filters it almost certainly means registry entries were stripped at link time rather than
+    // that nobody wrote tests.
+    if passed + ignored + skipped == 0 && failures.is_empty() && !spec.filters.is_empty() {
+        emit(
+            env,
+            sender,
+            &format!("[{plugin}] no tests matched the given filters"),
+        );
+    }
     let ok = failures.is_empty() && passed + ignored + skipped > 0;
     let verdict = if ok { "ok" } else { "FAILED" };
     let elapsed = start.elapsed().as_secs_f64();
