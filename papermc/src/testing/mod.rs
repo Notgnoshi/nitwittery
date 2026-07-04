@@ -78,13 +78,38 @@ mod tests {
         let _ = api;
     }
 
+    #[papermc::test(ignore)]
+    fn sample_ignored(api: &mut Api) {
+        let _ = api;
+    }
+
+    #[papermc::test(ignore = "some reason")]
+    fn sample_ignored_with_reason(api: &mut Api) {
+        let _ = api;
+    }
+
+    fn find(name: &str) -> &'static TestCase {
+        TESTS
+            .iter()
+            .find(|c| c.name == format!("papermc::testing::tests::{name}"))
+            .expect("test registered in TESTS")
+    }
+
     #[test]
     fn attribute_registers_test_case() {
-        let case = TESTS
-            .iter()
-            .find(|c| c.name == "papermc::testing::tests::sample")
-            .expect("sample test registered in TESTS");
+        let case = find("sample");
         assert!(!case.ignored);
         assert_eq!(case.ignore_reason, None);
+    }
+
+    #[test]
+    fn ignore_argument_registers_as_ignored() {
+        let case = find("sample_ignored");
+        assert!(case.ignored);
+        assert_eq!(case.ignore_reason, None);
+
+        let case = find("sample_ignored_with_reason");
+        assert!(case.ignored);
+        assert_eq!(case.ignore_reason, Some("some reason"));
     }
 }

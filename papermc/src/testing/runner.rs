@@ -51,6 +51,7 @@ fn run_battery(env: &mut Env<'_>, sender_obj: &JObject<'_>, args: &[String]) -> 
     let mut cases: Vec<&TestCase> = TESTS
         .iter()
         .filter(|c| args::matches(&spec, c.name))
+        .filter(|c| args::disposition(&spec, c.ignored) != args::Disposition::Exclude)
         .collect();
     cases.sort_by_key(|c| c.name);
 
@@ -80,7 +81,7 @@ fn run_battery(env: &mut Env<'_>, sender_obj: &JObject<'_>, args: &[String]) -> 
     let mut skipped = 0usize;
     let mut failures: Vec<(&'static str, String)> = Vec::new();
     for case in cases {
-        if case.ignored {
+        if args::disposition(&spec, case.ignored) == args::Disposition::ReportIgnored {
             ignored += 1;
             match case.ignore_reason {
                 Some(reason) => {

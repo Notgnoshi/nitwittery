@@ -1,6 +1,40 @@
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{Error, FnArg, ItemFn, Type};
+use syn::parse::{Parse, ParseStream};
+use syn::{Error, FnArg, Ident, ItemFn, LitStr, Token, Type};
+
+struct TestArgs {
+    ignored: bool,
+    ignore_reason: Option<LitStr>,
+}
+
+impl Parse for TestArgs {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let mut args = TestArgs {
+            ignored: false,
+            ignore_reason: None,
+        };
+        if input.is_empty() {
+            return Ok(args);
+        }
+        let ident: Ident = input.parse()?;
+        if ident != "ignore" {
+            return Err(Error::new(
+                ident.span(),
+                "unsupported argument; expected `ignore` or `ignore = \"reason\"`",
+            ));
+        }
+        args.ignored = true;
+        if input.peek(Token![=]) {
+            input.parse::<Token![=]>()?;
+            args.ignore_reason = Some(input.parse()?);
+        }
+        if !input.is_empty() {
+            return Err(input.error("unexpected trailing arguments"));
+        }
+        Ok(args)
+    }
+}
 
 /// Marks a function as an in-server test case.
 ///
@@ -9,23 +43,21 @@ use syn::{Error, FnArg, ItemFn, Type};
 ///
 /// Accepted signatures: first parameter `&mut Api`, then zero or more fixture parameters
 /// (`&T` where `T: TestFixture`), returning `()` or `eyre::Result<()>`.
+///
+/// `#[papermc::test(ignore)]` or `#[papermc::test(ignore = "reason")]` registers the test as
+/// ignored: reported but not run unless `/test` is invoked with `--ignored` or
+/// `--include-ignored`.
 #[proc_macro_attribute]
 pub fn test(attr: TokenStream, item: TokenStream) -> TokenStream {
-    let attr: proc_macro2::TokenStream = attr.into();
+    let args = syn::parse_macro_input!(attr as TestArgs);
     let item = syn::parse_macro_input!(item as ItemFn);
-    match expand(attr, item) {
+    match expand(args, item) {
         Ok(tokens) => tokens.into(),
         Err(err) => err.to_compile_error().into(),
     }
 }
 
-fn expand(attr: proc_macro2::TokenStream, item: ItemFn) -> syn::Result<proc_macro2::TokenStream> {
-    if !attr.is_empty() {
-        return Err(Error::new_spanned(
-            attr,
-            "#[papermc::test] takes no arguments",
-        ));
-    }
+fn expand(args: TestArgs, item: ItemFn) -> syn::Result<proc_macro2::TokenStream> {
     if let Some(param) = item.sig.generics.params.first() {
         return Err(Error::new_spanned(
             param,
@@ -100,6 +132,11 @@ fn expand(attr: proc_macro2::TokenStream, item: ItemFn) -> syn::Result<proc_macr
     let fn_name = fn_ident.to_string();
     let shim_ident = format_ident!("__papermc_test_shim_{fn_name}");
     let static_ident = format_ident!("__PAPERMC_TEST_{}", fn_name.to_uppercase());
+    let ignored = args.ignored;
+    let ignore_reason = match &args.ignore_reason {
+        Some(reason) => quote! { ::core::option::Option::Some(#reason) },
+        None => quote! { ::core::option::Option::None },
+    };
 
     Ok(quote! {
         #item
@@ -117,8 +154,8 @@ fn expand(attr: proc_macro2::TokenStream, item: ItemFn) -> syn::Result<proc_macr
         #[linkme(crate = ::papermc::__private::linkme)]
         static #static_ident: ::papermc::testing::TestCase = ::papermc::testing::TestCase {
             name: ::core::concat!(::core::module_path!(), "::", #fn_name),
-            ignored: false,
-            ignore_reason: ::core::option::Option::None,
+            ignored: #ignored,
+            ignore_reason: #ignore_reason,
             run: #shim_ident,
         };
     })

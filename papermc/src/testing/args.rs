@@ -1,4 +1,5 @@
-pub(crate) const USAGE: &str = "usage: /test [FILTER...] [--exact] [--list]";
+pub(crate) const USAGE: &str =
+    "usage: /test [FILTER...] [--exact] [--list] [--ignored] [--include-ignored]";
 
 #[derive(Debug)]
 pub(crate) struct RunSpec {
@@ -8,6 +9,20 @@ pub(crate) struct RunSpec {
     pub exact: bool,
     /// Print matched test names without running anything.
     pub list: bool,
+    /// Run only tests marked `ignore`.
+    pub ignored: bool,
+    /// Run everything, including tests marked `ignore`.
+    pub include_ignored: bool,
+}
+
+/// What the runner should do with a matched test.
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum Disposition {
+    Run,
+    /// Report as `ignored` without running (the default treatment of `ignore` tests).
+    ReportIgnored,
+    /// Drop from the run entirely (non-ignored tests under `--ignored`).
+    Exclude,
 }
 
 /// Parse command arguments. Flags may appear anywhere; every non-flag argument is a filter.
@@ -16,18 +31,43 @@ pub(crate) fn parse(args: &[String]) -> Result<RunSpec, String> {
         filters: Vec::new(),
         exact: false,
         list: false,
+        ignored: false,
+        include_ignored: false,
     };
     for arg in args {
         match arg.as_str() {
             "--exact" => spec.exact = true,
             "--list" => spec.list = true,
+            "--ignored" => spec.ignored = true,
+            "--include-ignored" => spec.include_ignored = true,
             flag if flag.starts_with('-') => {
                 return Err(format!("unrecognized option '{flag}'\n{USAGE}"));
             }
             filter => spec.filters.push(filter.to_string()),
         }
     }
+    if spec.ignored && spec.include_ignored {
+        return Err(format!(
+            "the options --ignored and --include-ignored are mutually exclusive\n{USAGE}"
+        ));
+    }
     Ok(spec)
+}
+
+pub(crate) fn disposition(spec: &RunSpec, ignored: bool) -> Disposition {
+    if spec.include_ignored {
+        Disposition::Run
+    } else if spec.ignored {
+        if ignored {
+            Disposition::Run
+        } else {
+            Disposition::Exclude
+        }
+    } else if ignored {
+        Disposition::ReportIgnored
+    } else {
+        Disposition::Run
+    }
 }
 
 /// Whether the test named `name` passes the spec's filters.
@@ -71,6 +111,33 @@ mod tests {
         let err = parse(&strings(&["--bogus"])).unwrap_err();
         assert!(err.contains("unrecognized option '--bogus'"), "{err}");
         assert!(err.contains(USAGE), "{err}");
+    }
+
+    #[test]
+    fn parse_rejects_ignored_with_include_ignored() {
+        let err = parse(&strings(&["--ignored", "--include-ignored"])).unwrap_err();
+        assert!(err.contains("mutually exclusive"), "{err}");
+    }
+
+    #[test]
+    fn disposition_default_reports_ignored() {
+        let spec = parse(&[]).unwrap();
+        assert_eq!(disposition(&spec, false), Disposition::Run);
+        assert_eq!(disposition(&spec, true), Disposition::ReportIgnored);
+    }
+
+    #[test]
+    fn disposition_ignored_runs_only_ignored() {
+        let spec = parse(&strings(&["--ignored"])).unwrap();
+        assert_eq!(disposition(&spec, true), Disposition::Run);
+        assert_eq!(disposition(&spec, false), Disposition::Exclude);
+    }
+
+    #[test]
+    fn disposition_include_ignored_runs_everything() {
+        let spec = parse(&strings(&["--include-ignored"])).unwrap();
+        assert_eq!(disposition(&spec, true), Disposition::Run);
+        assert_eq!(disposition(&spec, false), Disposition::Run);
     }
 
     #[test]
