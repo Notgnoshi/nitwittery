@@ -68,9 +68,16 @@ pub(crate) fn register_command<'local>(
         jni_sig!("(Ljava/lang/String;J)V"),
         &[JValue::Object(&name_jstr), JValue::Long(handler_id)],
     )?;
-    let fallback = env.new_string("papermc")?;
     let plugin =
         ctx::with_ctx(|c| c.java_plugin.clone()).expect("Ctx installed during plugin_init");
+    let fallback = env
+        .call_method(
+            &*plugin,
+            jni_str!("getName"),
+            jni_sig!("()Ljava/lang/String;"),
+            &[],
+        )?
+        .l()?;
     let server = env
         .call_method(
             &*plugin,
