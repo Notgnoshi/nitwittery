@@ -114,7 +114,7 @@ pub fn init<P: Plugin>(env: *mut jni::sys::JNIEnv, plugin: jni::sys::jobject) ->
             }));
         });
         #[cfg(feature = "tests")]
-        crate::testing::register_test_command(env)?;
+        crate::testing::register_test_command(&mut setup)?;
         Ok(())
     });
     match result {

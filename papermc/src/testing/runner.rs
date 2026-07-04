@@ -1,5 +1,4 @@
 use std::panic::AssertUnwindSafe;
-use std::sync::Arc;
 use std::time::Duration;
 
 use jni::objects::{JObject, JString};
@@ -8,36 +7,33 @@ use jni::{Env, jni_sig, jni_str};
 
 use crate::api::Api;
 use crate::bukkit::{CommandSender as _, CommandSenderInst};
-use crate::jobject_repr::JClassCast as _;
+use crate::ctx;
+use crate::jobject_repr::{JClassCast as _, JObjectRepr as _};
+use crate::plugin::Plugin;
+use crate::setup_api::{Completer, SetupApi};
 use crate::testing::{TESTS, TestCase, TestCtx, TestOutcome, args, battery};
-use crate::{ctx, registration};
 
-/// Register the `/test` command.
+/// Register the `/test` command through the public [SetupApi], like any plugin command.
 ///
 /// Tests are run from the main thread, but scheduled across multiple server ticks in a best-effort
 /// attempt to avoid blocking the main thread. This is because a number of bukkit APIs can only be
 /// called from the main thread, and I want to be able to test functionality depending on those APIs.
-pub(crate) fn register_test_command(env: &mut Env<'_>) -> eyre::Result<()> {
-    let id = ctx::next_id();
-    ctx::with_ctx(|c| {
-        c.command_handlers.insert(
-            id,
-            Arc::new(|env, sender_obj, args| {
-                if let Err(e) = handle_test_command(env, sender_obj, args) {
-                    tracing::error!("/test failed: {e:?}");
-                }
-                true
-            }),
-        );
-    })
-    .expect("Ctx installed during plugin_init");
-    let completer: crate::dispatch::TabCompleter = Arc::new(|_env, _sender, args| {
+pub(crate) fn register_test_command<P: Plugin>(
+    setup: &mut SetupApi<'_, '_, P>,
+) -> eyre::Result<()> {
+    let completer: Completer<P> = Box::new(|_plugin, _api, _sender, args| {
         let current = args.last().map(String::as_str).unwrap_or("");
-        Some(args::complete(current, TESTS.iter().map(|c| c.name)))
+        Ok(args::complete(current, TESTS.iter().map(|c| c.name)))
     });
-    registration::register_command(env, "test", Some("papermc.test"), Some(completer), id)?;
-    tracing::debug!("registered /test with handler id {id}");
-    Ok(())
+    setup.register_command(
+        "test",
+        Some("papermc.test"),
+        Some(completer),
+        |_plugin, api, sender, args| {
+            handle_test_command(api.jni(), sender.as_jobject(), args)?;
+            Ok(true)
+        },
+    )
 }
 
 fn handle_test_command(
