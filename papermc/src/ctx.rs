@@ -17,12 +17,22 @@ use crate::sync_call::SyncCallbackFn;
 pub(crate) type OnDisableFn =
     Box<dyn for<'a, 'local> Fn(&mut dyn Any, &mut Api<'a, 'local>) -> eyre::Result<()> + Send>;
 
+/// A command this load registered with the server command map, with the map keys needed to
+/// remove it again at teardown.
+pub(crate) struct RegisteredCommand {
+    pub(crate) command: Global<JObject<'static>>,
+    /// Lowercased primary label (`test`).
+    pub(crate) label: String,
+    /// Lowercased fallback prefix (`nitwittery`), forming the `nitwittery:test` alias key.
+    pub(crate) fallback: String,
+}
+
 /// Reload-scoped state.
 ///
 /// Born in `plugin_init`, dropped in `plugin_on_disable`.
 pub(crate) struct Ctx {
     pub(crate) java_plugin: Arc<Global<JObject<'static>>>,
-    pub(crate) registered_commands: Vec<Global<JObject<'static>>>,
+    pub(crate) registered_commands: Vec<RegisteredCommand>,
     pub(crate) event_handlers: HashMap<i64, EventHandler>,
     pub(crate) command_handlers: HashMap<i64, CommandHandler>,
     pub(crate) callbacks: HashMap<i64, BiConsumerFn>,

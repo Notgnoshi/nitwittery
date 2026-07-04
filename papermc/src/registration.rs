@@ -1,4 +1,4 @@
-use jni::objects::{JObject, JValue};
+use jni::objects::{JObject, JString, JValue};
 use jni::{Env, jni_sig, jni_str};
 
 use crate::ctx;
@@ -88,6 +88,10 @@ pub(crate) fn register_command<'local>(
             &[],
         )?
         .l()?;
+    let fallback_jstr = env.cast_local::<JString>(fallback)?;
+    let fallback_str = fallback_jstr.try_to_string(env)?.trim().to_lowercase();
+    let label = name.trim().to_lowercase();
+    let fallback = JObject::from(fallback_jstr);
     let server = env
         .call_method(
             &*plugin,
@@ -111,8 +115,14 @@ pub(crate) fn register_command<'local>(
         &[JValue::Object(&fallback), JValue::Object(&command)],
     )?;
     let cmd_global = env.new_global_ref(&command)?;
-    ctx::with_ctx(|c| c.registered_commands.push(cmd_global))
-        .expect("Ctx installed during plugin_init");
+    ctx::with_ctx(|c| {
+        c.registered_commands.push(ctx::RegisteredCommand {
+            command: cmd_global,
+            label,
+            fallback: fallback_str,
+        })
+    })
+    .expect("Ctx installed during plugin_init");
     Ok(())
 }
 
@@ -138,9 +148,42 @@ pub(crate) fn unregister_commands(env: &mut Env<'_>) -> jni::errors::Result<()> 
             &[],
         )?
         .l()?;
+    // `org.bukkit.command.Command#unregister(CommandMap)` only clears the command's own
+    // back-reference; the map keeps its `knownCommands` entries, which would leave stale
+    // commands dispatching dead handler ids after a `/reload`. Paper exposes the live map
+    // (`org.bukkit.command.CommandMap#getKnownCommands()`), so remove our entries directly.
+    let known = env
+        .call_method(
+            &command_map,
+            jni_str!("getKnownCommands"),
+            jni_sig!("()Ljava/util/Map;"),
+            &[],
+        )?
+        .l()?;
     for cmd in commands {
+        let qualified = format!("{}:{}", cmd.fallback, cmd.label);
+        for key in [cmd.label.as_str(), qualified.as_str()] {
+            let key_jstr = env.new_string(key)?;
+            let current = env
+                .call_method(
+                    &known,
+                    jni_str!("get"),
+                    jni_sig!("(Ljava/lang/Object;)Ljava/lang/Object;"),
+                    &[JValue::Object(&key_jstr)],
+                )?
+                .l()?;
+            // Only remove entries that still point at our command
+            if !current.is_null() && env.is_same_object(&current, &*cmd.command)? {
+                let _ = env.call_method(
+                    &known,
+                    jni_str!("remove"),
+                    jni_sig!("(Ljava/lang/Object;)Ljava/lang/Object;"),
+                    &[JValue::Object(&key_jstr)],
+                )?;
+            }
+        }
         let _ = env.call_method(
-            &cmd,
+            &*cmd.command,
             jni_str!("unregister"),
             jni_sig!("(Lorg/bukkit/command/CommandMap;)Z"),
             &[JValue::Object(&command_map)],
