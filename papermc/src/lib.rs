@@ -8,6 +8,7 @@ extern crate self as papermc;
 use jni_sys::{JNIEnv, jboolean, jlong, jobject, jobjectArray};
 
 mod api;
+pub mod build_id;
 pub mod bukkit;
 pub(crate) mod callbacks;
 pub(crate) mod ctx;

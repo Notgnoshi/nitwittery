@@ -96,6 +96,10 @@ pub fn init<P: Plugin>(env: *mut jni::sys::JNIEnv, plugin: jni::sys::jobject) ->
         if let Err(e) = logger::bind_dispatcher(env) {
             eprintln!("papermc::init: bind_dispatcher failed: {e}");
         }
+        tracing::info!(
+            "plugin DSO build id: {}",
+            crate::build_id::running_build_id().unwrap_or_else(|| "<unavailable>".to_string()),
+        );
         let plugin_obj = unsafe { JObject::from_raw(env, plugin) };
         let plugin_global = env.new_global_ref(&plugin_obj)?;
         if ctx::install(ctx::Ctx::new(plugin_global)).is_err() {
