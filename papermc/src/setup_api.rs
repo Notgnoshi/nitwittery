@@ -148,7 +148,7 @@ impl<'a, 'local, P: Plugin> SetupApi<'a, 'local, P> {
             );
         })
         .expect("Ctx installed during plugin_init");
-        registration::register_command(self.api.jni(), name, id)?;
+        registration::register_command(self.api.jni(), name, None, id)?;
         Ok(())
     }
 }

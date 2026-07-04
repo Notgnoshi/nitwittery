@@ -60,6 +60,7 @@ pub(crate) fn subscribe_event<'local>(
 pub(crate) fn register_command<'local>(
     env: &mut Env<'local>,
     name: &str,
+    permission: Option<&str>,
     handler_id: i64,
 ) -> jni::errors::Result<()> {
     let name_jstr = env.new_string(name)?;
@@ -68,6 +69,15 @@ pub(crate) fn register_command<'local>(
         jni_sig!("(Ljava/lang/String;J)V"),
         &[JValue::Object(&name_jstr), JValue::Long(handler_id)],
     )?;
+    if let Some(permission) = permission {
+        let permission_jstr = env.new_string(permission)?;
+        env.call_method(
+            &command,
+            jni_str!("setPermission"),
+            jni_sig!("(Ljava/lang/String;)V"),
+            &[JValue::Object(&permission_jstr)],
+        )?;
+    }
     let plugin =
         ctx::with_ctx(|c| c.java_plugin.clone()).expect("Ctx installed during plugin_init");
     let fallback = env
