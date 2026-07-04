@@ -1,9 +1,11 @@
 use linkme::distributed_slice;
 
 use crate::api::Api;
+use crate::bukkit::CommandSenderInst;
 
 mod args;
 mod battery;
+mod fixtures;
 mod runner;
 mod selftest;
 
@@ -30,6 +32,14 @@ pub struct TestCase {
 /// Per-test execution context handed to [TestCase::run].
 pub struct TestCtx<'a, 'l> {
     pub api: Api<'a, 'l>,
+    invoker: CommandSenderInst<'l>,
+}
+
+impl<'a, 'l> TestCtx<'a, 'l> {
+    /// The command sender that invoked `/test`: the console, or an opped player.
+    pub fn invoker(&self) -> &CommandSenderInst<'l> {
+        &self.invoker
+    }
 }
 
 pub enum TestOutcome {

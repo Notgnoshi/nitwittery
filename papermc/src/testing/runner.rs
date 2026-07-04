@@ -3,6 +3,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use jni::objects::{JObject, JString};
+use jni::refs::Global;
 use jni::{Env, jni_sig, jni_str};
 
 use crate::api::Api;
@@ -125,9 +126,17 @@ pub(super) fn summary_line(
 
 /// Run one test inside its own JNI local frame so its local refs are bulk-freed on exit and
 /// cannot dangle into the next test. A panicking test is contained and reported as failed.
-pub(super) fn run_one(env: &mut Env<'_>, case: &TestCase) -> TestOutcome {
+pub(super) fn run_one(
+    env: &mut Env<'_>,
+    sender: &Global<JObject<'static>>,
+    case: &TestCase,
+) -> TestOutcome {
     let result = env.with_local_frame(32, |env| -> jni::errors::Result<TestOutcome> {
-        let mut tctx = TestCtx { api: Api::new(env) };
+        let invoker_obj = env.new_local_ref(&*sender)?;
+        let mut tctx = TestCtx {
+            api: Api::new(env),
+            invoker: CommandSenderInst::new(invoker_obj),
+        };
         Ok(
             std::panic::catch_unwind(AssertUnwindSafe(|| (case.run)(&mut tctx)))
                 .unwrap_or_else(|payload| TestOutcome::Failed(panic_message(&*payload))),

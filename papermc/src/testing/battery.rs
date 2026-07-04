@@ -164,7 +164,7 @@ fn run_case(
             return Ok(());
         }
         tracing::info!("test {} starting", case.name);
-        match run_one(env, case) {
+        match run_one(env, sender, case) {
             TestOutcome::Passed => {
                 with_battery(|b| b.passed += 1);
                 emit(

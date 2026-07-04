@@ -16,7 +16,7 @@ impl<'local> Location<'local> {
     /// Mirrors `org.bukkit.Location(World, double, double, double)`.
     pub fn new(
         api: &mut Api<'_, 'local>,
-        world: &World<'local>,
+        world: &World<'_>,
         x: f64,
         y: f64,
         z: f64,

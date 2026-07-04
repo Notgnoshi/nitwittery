@@ -13,6 +13,37 @@ papermc_jobject! {
 }
 
 impl<'local> World<'local> {
+    /// Get every world currently loaded on the server.
+    ///
+    /// Mirrors `org.bukkit.Bukkit#getWorlds()`
+    pub fn all(api: &mut Api<'_, 'local>) -> eyre::Result<Vec<World<'local>>> {
+        let env = api.jni();
+        let list = env
+            .call_static_method(
+                jni_str!("org/bukkit/Bukkit"),
+                jni_str!("getWorlds"),
+                jni_sig!("()Ljava/util/List;"),
+                &[],
+            )?
+            .l()?;
+        let size = env
+            .call_method(&list, jni_str!("size"), jni_sig!("()I"), &[])?
+            .i()?;
+        let mut worlds = Vec::with_capacity(size as usize);
+        for i in 0..size {
+            let obj = env
+                .call_method(
+                    &list,
+                    jni_str!("get"),
+                    jni_sig!("(I)Ljava/lang/Object;"),
+                    &[JValue::Int(i)],
+                )?
+                .l()?;
+            worlds.push(unsafe { World::from_jobject(obj) });
+        }
+        Ok(worlds)
+    }
+
     /// Mirrors `org.bukkit.World#getEnvironment()`.
     pub fn environment(&self, api: &mut Api<'_, 'local>) -> eyre::Result<Environment> {
         let env_obj = {
