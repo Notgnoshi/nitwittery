@@ -30,7 +30,7 @@ pub use api::Api;
 pub use papermc_macros::test;
 pub use plugin::Plugin;
 pub use plugin_init::init;
-pub use setup_api::SetupApi;
+pub use setup_api::{Completer, SetupApi};
 
 /// Implementation details of `#[papermc::test]` expansions. Not public API.
 #[cfg(feature = "tests")]

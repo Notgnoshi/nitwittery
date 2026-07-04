@@ -61,8 +61,13 @@ pub(crate) fn register_command<'local>(
     env: &mut Env<'local>,
     name: &str,
     permission: Option<&str>,
+    completer: Option<crate::dispatch::TabCompleter>,
     handler_id: i64,
 ) -> jni::errors::Result<()> {
+    if let Some(completer) = completer {
+        ctx::with_ctx(|c| c.tab_completers.insert(handler_id, completer))
+            .expect("Ctx installed during plugin_init");
+    }
     let name_jstr = env.new_string(name)?;
     let command = env.new_object(
         jni_str!("io/papermc/RustCommand"),

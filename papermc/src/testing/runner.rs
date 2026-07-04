@@ -31,7 +31,7 @@ pub(crate) fn register_test_command(env: &mut Env<'_>) -> eyre::Result<()> {
         );
     })
     .expect("Ctx installed during plugin_init");
-    registration::register_command(env, "test", Some("papermc.test"), id)?;
+    registration::register_command(env, "test", Some("papermc.test"), None, id)?;
     tracing::debug!("registered /test with handler id {id}");
     Ok(())
 }

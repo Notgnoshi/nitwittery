@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
-use jni::Env;
-use jni::objects::{JObject, JObjectArray, JString};
+use jni::objects::{JObject, JObjectArray, JString, JValue};
 use jni::sys::{JNI_FALSE, JNI_TRUE, jboolean, jlong, jobject, jobjectArray};
+use jni::{Env, jni_sig, jni_str};
 use tracing::warn;
 
 use crate::{ctx, ffi};
@@ -10,6 +10,10 @@ use crate::{ctx, ffi};
 pub(crate) type EventHandler = Arc<dyn for<'a> Fn(&mut Env<'a>, &JObject<'a>) + Send + Sync>;
 pub(crate) type CommandHandler =
     Arc<dyn for<'a> Fn(&mut Env<'a>, &JObject<'a>, &[String]) -> bool + Send + Sync>;
+/// Command tab-completion callback: receives the sender and the current args (the last element
+/// is the partial word being completed). `None` falls back to Bukkit's default completion.
+pub(crate) type TabCompleter =
+    Arc<dyn for<'a> Fn(&mut Env<'a>, &JObject<'a>, &[String]) -> Option<Vec<String>> + Send + Sync>;
 
 pub(crate) unsafe extern "C" fn dispatch_event(
     env: *mut jni::sys::JNIEnv,
@@ -53,12 +57,50 @@ pub(crate) unsafe extern "C" fn dispatch_command(
 }
 
 pub(crate) unsafe extern "C" fn dispatch_tab_complete(
-    _env: *mut jni::sys::JNIEnv,
-    _handler_id: jlong,
-    _sender: jobject,
-    _args: jobjectArray,
+    env: *mut jni::sys::JNIEnv,
+    handler_id: jlong,
+    sender: jobject,
+    args: jobjectArray,
 ) -> jobject {
-    std::ptr::null_mut()
+    let result = ffi::bridge(env, |env: &mut Env<'_>| -> eyre::Result<jobject> {
+        let sender_obj = unsafe { JObject::from_raw(env, sender) };
+        let args_arr = unsafe { JObjectArray::<JString>::from_raw(env, args) };
+        let args_vec = read_string_array(env, &args_arr)?;
+        let completer = ctx::with_ctx(|c| c.tab_completers.get(&handler_id).cloned()).flatten();
+        let Some(completer) = completer else {
+            return Ok(std::ptr::null_mut());
+        };
+        let Some(completions) = completer(env, &sender_obj, &args_vec) else {
+            return Ok(std::ptr::null_mut());
+        };
+        // Mirrors `java.util.ArrayList(int)` / `java.util.List#add(Object)`. The sized inner
+        // frame bounds the per-completion string locals; the list itself is returned into the
+        // caller's frame.
+        let list = env.with_local_frame_returning_local::<_, JObject, eyre::Report>(
+            completions.len() + 4,
+            |env| -> eyre::Result<JObject<'_>> {
+                let list = env.new_object(
+                    jni_str!("java/util/ArrayList"),
+                    jni_sig!("(I)V"),
+                    &[JValue::Int(
+                        i32::try_from(completions.len()).unwrap_or(i32::MAX),
+                    )],
+                )?;
+                for completion in &completions {
+                    let jstr = env.new_string(completion)?;
+                    env.call_method(
+                        &list,
+                        jni_str!("add"),
+                        jni_sig!("(Ljava/lang/Object;)Z"),
+                        &[JValue::Object(&jstr)],
+                    )?;
+                }
+                Ok(list)
+            },
+        )?;
+        Ok(list.into_raw())
+    });
+    result.unwrap_or(std::ptr::null_mut())
 }
 
 fn read_string_array(

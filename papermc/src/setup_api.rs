@@ -30,6 +30,23 @@ fn actual_class_name(env: &mut Env<'_>, obj: &JObject<'_>) -> String {
     }
 }
 
+/// Tab-completion callback for [SetupApi::register_command]: returns the candidate completions
+/// for the last (partial) argument.
+///
+/// Boxed so that passing `None` requires no type annotation at call sites. Runs on the main
+/// thread with the same plugin-state access as command handlers. Errors are logged and fall back
+/// to Bukkit's default completion.
+pub type Completer<P> = Box<
+    dyn for<'b, 'l> Fn(
+            &mut P,
+            &mut Api<'b, 'l>,
+            &CommandSenderInst<'l>,
+            &[String],
+        ) -> eyre::Result<Vec<String>>
+        + Send
+        + Sync,
+>;
+
 /// Plugin setup wrapper around [Api].
 ///
 /// Exposes registration methods (`register_event`, `register_command`, ...) that are only valid
@@ -106,8 +123,23 @@ impl<'a, 'local, P: Plugin> SetupApi<'a, 'local, P> {
 
     /// Register a Bukkit command handler.
     ///
+    /// `permission` is a permission node  required to run and tab-complete the command, applied via
+    /// `org.bukkit.command.Command#setPermission(String)`. This does not declare the node with the
+    /// PluginManager (You must do so in plugin.yml `permissions:` or programmatically via
+    /// `PluginManager#addPermission`). Unregistered permission nodes are treated as op-only.
+    /// `None` lets anyone run the command.
+    ///
+    /// `completer` supplies tab completions for the last (partial) argument. `None` keeps Bukkit's
+    /// default completion (online player names).
+    ///
     /// Handler errors are logged and treated as `false` (Bukkit will print usage).
-    pub fn register_command<F>(&mut self, name: &str, handler: F) -> eyre::Result<()>
+    pub fn register_command<F>(
+        &mut self,
+        name: &str,
+        permission: Option<&str>,
+        completer: Option<Completer<P>>,
+        handler: F,
+    ) -> eyre::Result<()>
     where
         F: for<'b, 'l> Fn(
                 &mut P,
@@ -148,7 +180,32 @@ impl<'a, 'local, P: Plugin> SetupApi<'a, 'local, P> {
             );
         })
         .expect("Ctx installed during plugin_init");
-        registration::register_command(self.api.jni(), name, None, id)?;
+        let tab_completer = completer.map(|completer| {
+            let completer_name = name.to_string();
+            let wrapped: crate::dispatch::TabCompleter = Arc::new(move |env, sender_obj, args| {
+                match CommandSenderInst::wrap_ref(env, sender_obj) {
+                    Ok(sender) => with_plugin::<P, _>(env, |p, env| {
+                        let mut api = Api::new(env);
+                        match completer(p, &mut api, sender, args) {
+                            Ok(completions) => Some(completions),
+                            Err(e) => {
+                                tracing::warn!(
+                                    "command `{completer_name}` completer returned error: {e:?}"
+                                );
+                                None
+                            }
+                        }
+                    })
+                    .flatten(),
+                    Err(e) => {
+                        tracing::warn!("completion dispatch type-check failed: {e}");
+                        None
+                    }
+                }
+            });
+            wrapped
+        });
+        registration::register_command(self.api.jni(), name, permission, tab_completer, id)?;
         Ok(())
     }
 }
