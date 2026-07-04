@@ -31,7 +31,11 @@ pub(crate) fn register_test_command(env: &mut Env<'_>) -> eyre::Result<()> {
         );
     })
     .expect("Ctx installed during plugin_init");
-    registration::register_command(env, "test", Some("papermc.test"), None, id)?;
+    let completer: crate::dispatch::TabCompleter = Arc::new(|_env, _sender, args| {
+        let current = args.last().map(String::as_str).unwrap_or("");
+        Some(args::complete(current, TESTS.iter().map(|c| c.name)))
+    });
+    registration::register_command(env, "test", Some("papermc.test"), Some(completer), id)?;
     tracing::debug!("registered /test with handler id {id}");
     Ok(())
 }

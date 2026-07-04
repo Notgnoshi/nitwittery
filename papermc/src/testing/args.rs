@@ -1,6 +1,9 @@
 pub(crate) const USAGE: &str =
     "usage: /test [FILTER...] [--exact] [--list] [--ignored] [--include-ignored]";
 
+/// Every flag `parse` accepts, for tab completion.
+pub(crate) const FLAGS: [&str; 4] = ["--exact", "--ignored", "--include-ignored", "--list"];
+
 #[derive(Debug)]
 pub(crate) struct RunSpec {
     /// Positional args. A test runs if it matches any filter; no filters matches everything.
@@ -68,6 +71,22 @@ pub(crate) fn disposition(spec: &RunSpec, ignored: bool) -> Disposition {
     } else {
         Disposition::Run
     }
+}
+
+/// Tab-completion candidates for the partial word `current`: flags and test names by prefix.
+pub(crate) fn complete<'n>(current: &str, names: impl Iterator<Item = &'n str>) -> Vec<String> {
+    let mut out: Vec<String> = FLAGS
+        .iter()
+        .filter(|flag| flag.starts_with(current))
+        .map(|flag| flag.to_string())
+        .collect();
+    out.extend(
+        names
+            .filter(|name| name.starts_with(current))
+            .map(str::to_string),
+    );
+    out.sort();
+    out
 }
 
 /// Whether the test named `name` passes the spec's filters.
@@ -138,6 +157,42 @@ mod tests {
         let spec = parse(&strings(&["--include-ignored"])).unwrap();
         assert_eq!(disposition(&spec, true), Disposition::Run);
         assert_eq!(disposition(&spec, false), Disposition::Run);
+    }
+
+    #[test]
+    fn complete_flags_by_prefix() {
+        let names = ["papermc::selftest::class_lookup"];
+        let out = complete("--i", names.iter().copied());
+        assert_eq!(out, vec!["--ignored", "--include-ignored"]);
+    }
+
+    #[test]
+    fn complete_names_by_prefix() {
+        let names = ["papermc::a", "papermc::b", "nitwittery::c"];
+        let out = complete("papermc::", names.iter().copied());
+        assert_eq!(out, vec!["papermc::a", "papermc::b"]);
+    }
+
+    #[test]
+    fn complete_empty_offers_everything() {
+        let names = ["zzz::test"];
+        let out = complete("", names.iter().copied());
+        assert_eq!(
+            out,
+            vec![
+                "--exact",
+                "--ignored",
+                "--include-ignored",
+                "--list",
+                "zzz::test"
+            ]
+        );
+    }
+
+    #[test]
+    fn complete_no_match_is_empty() {
+        let names = ["papermc::a"];
+        assert!(complete("xyz", names.iter().copied()).is_empty());
     }
 
     #[test]
