@@ -3,9 +3,11 @@ use linkme::distributed_slice;
 use crate::api::Api;
 
 mod args;
+mod battery;
 mod runner;
 mod selftest;
 
+pub(crate) use battery::{Battery, shutdown};
 pub(crate) use runner::register_test_command;
 
 /// Every `#[papermc::test]` in the final plugin cdylib, including those from all linked crates.

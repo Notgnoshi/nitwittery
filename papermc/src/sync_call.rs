@@ -15,6 +15,20 @@ use crate::{ctx, ffi};
 /// `Arc<Mutex<Option<T>>>`).
 pub(crate) type SyncCallbackFn = Box<dyn for<'a, 'local> FnOnce(&mut Api<'a, 'local>) + Send>;
 
+/// A repeatedly-invocable main-thread closure, for `BukkitScheduler#runTaskTimer` tasks.
+#[cfg(feature = "tests")]
+pub(crate) type RepeatingCallbackFn = dyn for<'a, 'local> Fn(&mut Api<'a, 'local>) + Send + Sync;
+
+/// A registered `RustCallable.bridgeDispatch` target.
+pub(crate) enum SyncCallback {
+    /// Removed from the registry by its first invocation.
+    Once(SyncCallbackFn),
+    /// Stays registered across invocations (repeating scheduler tasks); removed explicitly by
+    /// whoever registered it.
+    #[cfg(feature = "tests")]
+    Repeating(Arc<RepeatingCallbackFn>),
+}
+
 impl<'a, 'local> Api<'a, 'local> {
     /// Run `f` on the main server thread and block until it completes.
     ///
@@ -42,7 +56,7 @@ impl<'a, 'local> Api<'a, 'local> {
             *result_capture.lock().expect("sync_call result mutex") = Some(r);
         });
         ctx::with_ctx(|c| {
-            c.sync_callbacks.insert(id, boxed);
+            c.sync_callbacks.insert(id, SyncCallback::Once(boxed));
         })
         .expect("Ctx installed during plugin_init");
 
@@ -112,13 +126,29 @@ impl<'a, 'local> Api<'a, 'local> {
 /// function pointer.
 pub(crate) unsafe extern "C" fn dispatch_callable(env_raw: *mut JNIEnv, id: jlong) {
     let _ = ffi::bridge(env_raw, |env: &mut Env<'_>| -> eyre::Result<()> {
-        let callback = ctx::with_ctx(|c| c.sync_callbacks.remove(&id)).flatten();
+        // Take the callback out of the registry to invoke it without holding the Ctx lock;
+        // repeating callbacks are put back for the next fire.
+        let callback = ctx::with_ctx(|c| match c.sync_callbacks.remove(&id) {
+            Some(SyncCallback::Once(f)) => Some(SyncCallback::Once(f)),
+            #[cfg(feature = "tests")]
+            Some(SyncCallback::Repeating(f)) => {
+                c.sync_callbacks
+                    .insert(id, SyncCallback::Repeating(f.clone()));
+                Some(SyncCallback::Repeating(f))
+            }
+            None => None,
+        })
+        .flatten();
         let Some(callback) = callback else {
             warn!("no sync callable registered for id {id}");
             return Ok(());
         };
         let mut api = Api::new(env);
-        callback(&mut api);
+        match callback {
+            SyncCallback::Once(f) => f(&mut api),
+            #[cfg(feature = "tests")]
+            SyncCallback::Repeating(f) => f(&mut api),
+        }
         Ok(())
     });
 }

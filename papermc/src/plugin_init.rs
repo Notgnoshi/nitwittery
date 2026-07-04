@@ -26,6 +26,8 @@ static FN_TABLE: FnTable = FnTable {
 
 unsafe extern "C" fn plugin_on_disable(env: *mut jni::sys::JNIEnv) -> i32 {
     let result = ffi::bridge(env, |env: &mut Env<'_>| -> eyre::Result<()> {
+        #[cfg(feature = "tests")]
+        crate::testing::shutdown(env);
         // Invoke the user's `Plugin::on_disable` (if a typed plugin was installed via `init::<P>`)
         // before tearing down anything else, so the user code still sees a live Ctx and JNI env.
         let plugin_and_fn = ctx::with_ctx(|c| {

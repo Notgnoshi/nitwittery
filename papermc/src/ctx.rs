@@ -12,7 +12,7 @@ use jni::strings::JNIStr;
 use crate::api::Api;
 use crate::callbacks::BiConsumerFn;
 use crate::dispatch::{CommandHandler, EventHandler};
-use crate::sync_call::SyncCallbackFn;
+use crate::sync_call::SyncCallback;
 
 pub(crate) type OnDisableFn =
     Box<dyn for<'a, 'local> Fn(&mut dyn Any, &mut Api<'a, 'local>) -> eyre::Result<()> + Send>;
@@ -36,11 +36,15 @@ pub(crate) struct Ctx {
     pub(crate) event_handlers: HashMap<i64, EventHandler>,
     pub(crate) command_handlers: HashMap<i64, CommandHandler>,
     pub(crate) callbacks: HashMap<i64, BiConsumerFn>,
-    pub(crate) sync_callbacks: HashMap<i64, SyncCallbackFn>,
+    pub(crate) sync_callbacks: HashMap<i64, SyncCallback>,
     pub(crate) mini_message: Option<Arc<Global<JObject<'static>>>>,
     jni_cache: HashMap<&'static str, Arc<Global<JClass<'static>>>>,
     pub(crate) rust_plugin: Option<Box<dyn Any + Send>>,
     pub(crate) on_disable_fn: Option<OnDisableFn>,
+    /// In-flight `/test` battery, if any. Has to be cached here, because we don't run all of the
+    /// tests at once, we schedule them across multiple server ticks.
+    #[cfg(feature = "tests")]
+    pub(crate) battery: Option<crate::testing::Battery>,
 }
 
 impl Ctx {
@@ -56,6 +60,8 @@ impl Ctx {
             jni_cache: HashMap::new(),
             rust_plugin: None,
             on_disable_fn: None,
+            #[cfg(feature = "tests")]
+            battery: None,
         }
     }
 }
