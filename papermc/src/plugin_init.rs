@@ -111,6 +111,8 @@ pub fn init<P: Plugin>(env: *mut jni::sys::JNIEnv, plugin: jni::sys::jobject) ->
                 P::on_disable(p, api)
             }));
         });
+        #[cfg(feature = "tests")]
+        crate::testing::register_test_command(env)?;
         Ok(())
     });
     match result {

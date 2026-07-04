@@ -2,6 +2,11 @@ use linkme::distributed_slice;
 
 use crate::api::Api;
 
+mod runner;
+mod selftest;
+
+pub(crate) use runner::register_test_command;
+
 /// Every `#[papermc::test]` in the final plugin cdylib, including those from all linked crates.
 #[distributed_slice]
 pub static TESTS: [TestCase];
