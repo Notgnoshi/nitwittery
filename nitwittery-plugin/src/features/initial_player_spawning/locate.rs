@@ -3,7 +3,7 @@ use jni::refs::Global;
 use papermc::Api;
 use papermc::bukkit::{Location, Structure, World};
 use papermc::jobject_repr::JObjectRepr;
-use rand::Rng;
+use rand::{Rng, RngExt};
 
 use super::Config;
 

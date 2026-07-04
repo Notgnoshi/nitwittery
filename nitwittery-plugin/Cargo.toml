@@ -10,7 +10,7 @@ description.workspace = true
 eyre.workspace = true
 jni.workspace = true
 papermc.workspace = true
-rand = "0.9"
+rand = "0.10"
 tracing.workspace = true
 
 [lib]
