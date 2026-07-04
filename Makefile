@@ -8,7 +8,7 @@ build: cargo gradle
 
 .PHONY: cargo
 cargo:
-	cargo build --workspace --release
+	cargo build --workspace --release --features nitwittery-plugin/tests
 
 .PHONY: gradle
 gradle:
@@ -24,14 +24,14 @@ run: nitwittery-plugin
 
 .PHONY: test
 test:
-	cargo test --workspace
+	cargo test --workspace --features nitwittery-plugin/tests
 
 .PHONY: lint
 lint: lint-rust lint-java
 
 .PHONY: lint-rust
 lint-rust:
-	cargo clippy --workspace --all-targets -- -D warnings
+	cargo clippy --workspace --all-targets --features nitwittery-plugin/tests -- -D warnings
 
 .PHONY: lint-java
 lint-java:

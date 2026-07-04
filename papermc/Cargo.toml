@@ -11,8 +11,13 @@ arc-swap.workspace = true
 eyre.workspace = true
 jni.workspace = true
 jni-sys.workspace = true
+linkme = { workspace = true, optional = true }
+papermc-macros = { workspace = true, optional = true }
 tracing.workspace = true
 tracing-subscriber.workspace = true
+
+[features]
+tests = ["dep:linkme", "dep:papermc-macros"]
 
 [lib]
 crate-type = ["rlib"]

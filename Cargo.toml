@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["nitwittery-plugin", "papermc", "papermc-loader"]
+members = ["nitwittery-plugin", "papermc", "papermc-loader", "papermc-macros"]
 
 [workspace.package]
 version = "0.0.1-rc0"
@@ -15,6 +15,11 @@ eyre = "0.6"
 jni = "0.22"
 jni-sys = "0.4"
 libloading = "0.9"
+linkme = "0.3"
 papermc = { path = "papermc" }
+papermc-macros = { path = "papermc-macros" }
+proc-macro2 = "1"
+quote = "1"
+syn = { version = "2", features = ["full"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }

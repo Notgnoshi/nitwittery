@@ -1,4 +1,10 @@
 //! Framework library for Rust Paper plugins.
+
+// Lets `::papermc::` paths in `#[papermc::test]` expansions resolve when the attribute is used
+// inside papermc itself (the selftest battery).
+#[cfg(feature = "tests")]
+extern crate self as papermc;
+
 use jni_sys::{JNIEnv, jboolean, jlong, jobject, jobjectArray};
 
 mod api;
@@ -15,12 +21,23 @@ mod plugin_init;
 mod registration;
 mod setup_api;
 mod sync_call;
+#[cfg(feature = "tests")]
+pub mod testing;
 pub mod util;
 
 pub use api::Api;
+#[cfg(feature = "tests")]
+pub use papermc_macros::test;
 pub use plugin::Plugin;
 pub use plugin_init::init;
 pub use setup_api::SetupApi;
+
+/// Implementation details of `#[papermc::test]` expansions. Not public API.
+#[cfg(feature = "tests")]
+#[doc(hidden)]
+pub mod __private {
+    pub use linkme;
+}
 
 /// ABI version of the `FnTable` struct.
 ///
