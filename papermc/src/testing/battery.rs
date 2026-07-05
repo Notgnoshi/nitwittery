@@ -13,11 +13,12 @@ use jni::objects::JObject;
 use jni::refs::Global;
 
 use crate::api::Api;
-use crate::bukkit::CommandSenderInst;
+use crate::bukkit::mini_message::escape_tags;
+use crate::bukkit::{Bukkit, CommandSenderInst};
 use crate::ctx;
-use crate::jobject_repr::JClassCast as _;
+use crate::jobject_repr::{JClassCast as _, JObjectRepr as _};
 use crate::sync_call::RepeatingTask;
-use crate::testing::runner::{emit, run_one, summary_line};
+use crate::testing::runner::{emit_rich, run_one, summary_line};
 use crate::testing::{TestCase, TestOutcome};
 
 const TICK_BUDGET: Duration = Duration::from_millis(20);
@@ -32,6 +33,7 @@ pub(crate) struct Battery {
     start: Instant,
     /// `org.bukkit.command.CommandSender` that invoked `/test`.
     sender: Arc<Global<JObject<'static>>>,
+    console: Option<Arc<Global<JObject<'static>>>>, // None when 'sender' is the console.
     plugin: String,
     /// Repeating scheduler task driving [tick]; cancelled when the battery ends.
     task: RepeatingTask,
@@ -53,6 +55,17 @@ pub(super) fn start(
     }
     let sender = Arc::new(env.new_global_ref(sender_obj)?);
     let mut api = Api::new(env);
+    let console_inst = Bukkit::console_sender(&mut api)?;
+    let console = if api
+        .jni()
+        .is_same_object(sender_obj, console_inst.as_jobject())?
+    {
+        None
+    } else {
+        Some(Arc::new(
+            api.jni().new_global_ref(console_inst.as_jobject())?,
+        ))
+    };
     let task = api.schedule_repeating(1, 1, |api| {
         if let Err(e) = tick(api) {
             tracing::error!("test battery tick failed: {e:?}");
@@ -68,6 +81,7 @@ pub(super) fn start(
             failures: Vec::new(),
             start: Instant::now(),
             sender,
+            console,
             plugin,
             task,
         });
@@ -96,12 +110,17 @@ pub(crate) fn shutdown(env: &mut Env<'_>) {
 /// Tick the test [Battery] in the [Api] context until [TICK_BUDGET] is spent or the battery ends.
 fn tick(api: &mut Api<'_, '_>) -> eyre::Result<()> {
     let header = ctx::with_ctx(|c| {
-        c.battery
-            .as_ref()
-            .map(|b| (b.sender.clone(), b.plugin.clone(), b.run_ignored))
+        c.battery.as_ref().map(|b| {
+            (
+                b.sender.clone(),
+                b.console.clone(),
+                b.plugin.clone(),
+                b.run_ignored,
+            )
+        })
     })
     .flatten();
-    let Some((sender, plugin, run_ignored)) = header else {
+    let Some((sender, console, plugin, run_ignored)) = header else {
         return Ok(());
     };
     let budget = Instant::now();
@@ -111,7 +130,7 @@ fn tick(api: &mut Api<'_, '_>) -> eyre::Result<()> {
         let Some(case) = case else {
             return finish(api);
         };
-        run_case(api, &sender, &plugin, case, run_ignored)?;
+        run_case(api, &sender, console.as_deref(), &plugin, case, run_ignored)?;
 
         // We don't want to block the main thread too long, so we yield and reschedule later. This
         // doesn't prevent a single test from blocking too long, but I'm not sure there's much I can
@@ -126,49 +145,60 @@ fn tick(api: &mut Api<'_, '_>) -> eyre::Result<()> {
 fn run_case(
     api: &mut Api<'_, '_>,
     sender: &Global<JObject<'static>>,
+    console: Option<&Global<JObject<'static>>>,
     plugin: &str,
     case: &'static TestCase,
     run_ignored: bool,
 ) -> eyre::Result<()> {
     let env = api.jni();
-    env.with_local_frame(16, |env| -> eyre::Result<()> {
+    env.with_local_frame(32, |env| -> eyre::Result<()> {
         let sender_local = env.new_local_ref(&*sender)?;
         let sender_inst = CommandSenderInst::wrap_ref(env, &sender_local)?;
+        let console_local = match console {
+            Some(console) => Some(env.new_local_ref(&**console)?),
+            None => None,
+        };
+        let mut targets = vec![sender_inst];
+        if let Some(console_local) = &console_local {
+            targets.push(CommandSenderInst::wrap_ref(env, console_local)?);
+        }
+        let name = escape_tags(env, case.name)?;
         if case.ignored && !run_ignored {
             with_battery(|b| b.ignored += 1);
             let line = match case.ignore_reason {
-                Some(reason) => {
-                    format!("[{plugin}] test {} ... ignored, {reason}", case.name)
-                }
-                None => format!("[{plugin}] test {} ... ignored", case.name),
+                Some(reason) => format!(
+                    "[{plugin}] test {name} ... <yellow>ignored</yellow>, {}",
+                    escape_tags(env, reason)?
+                ),
+                None => format!("[{plugin}] test {name} ... <yellow>ignored</yellow>"),
             };
-            emit(env, sender_inst, &line);
+            emit_rich(env, &targets, &line);
             return Ok(());
         }
-        tracing::info!("test {} starting", case.name);
         match run_one(env, sender, case) {
             TestOutcome::Passed => {
                 with_battery(|b| b.passed += 1);
-                emit(
+                emit_rich(
                     env,
-                    sender_inst,
-                    &format!("[{plugin}] test {} ... ok", case.name),
+                    &targets,
+                    &format!("[{plugin}] test {name} ... <green>ok</green>"),
                 );
             }
             TestOutcome::Failed(message) => {
                 with_battery(|b| b.failures.push((case.name, message)));
-                emit(
+                emit_rich(
                     env,
-                    sender_inst,
-                    &format!("[{plugin}] test {} ... FAILED", case.name),
+                    &targets,
+                    &format!("[{plugin}] test {name} ... <red>FAILED</red>"),
                 );
             }
             TestOutcome::Skipped(reason) => {
                 with_battery(|b| b.skipped += 1);
-                emit(
+                let reason = escape_tags(env, reason)?;
+                emit_rich(
                     env,
-                    sender_inst,
-                    &format!("[{plugin}] test {} ... skipped ({reason})", case.name),
+                    &targets,
+                    &format!("[{plugin}] test {name} ... <yellow>skipped</yellow> ({reason})"),
                 );
             }
         }
@@ -195,16 +225,26 @@ fn finish(api: &mut Api<'_, '_>) -> eyre::Result<()> {
     }
     let elapsed = battery.start.elapsed();
     let env = api.jni();
-    env.with_local_frame(16, |env| -> eyre::Result<()> {
+    env.with_local_frame(32, |env| -> eyre::Result<()> {
         let sender_local = env.new_local_ref(&*battery.sender)?;
         let sender_inst = CommandSenderInst::wrap_ref(env, &sender_local)?;
+        let console_local = match &battery.console {
+            Some(console) => Some(env.new_local_ref(&**console)?),
+            None => None,
+        };
+        let mut targets = vec![sender_inst];
+        if let Some(console_local) = &console_local {
+            targets.push(CommandSenderInst::wrap_ref(env, console_local)?);
+        }
         let plugin = battery.plugin.as_str();
         if !battery.failures.is_empty() {
-            emit(env, sender_inst, &format!("[{plugin}] failures:"));
+            emit_rich(env, &targets, &format!("[{plugin}] <red>failures:</red>"));
             for (name, message) in &battery.failures {
-                emit(env, sender_inst, &format!("[{plugin}] ---- {name} ----"));
+                let name = escape_tags(env, name)?;
+                let message = escape_tags(env, message)?;
+                emit_rich(env, &targets, &format!("[{plugin}] ---- {name} ----"));
                 for line in message.lines() {
-                    emit(env, sender_inst, &format!("[{plugin}] {line}"));
+                    emit_rich(env, &targets, &format!("[{plugin}] {line}"));
                 }
             }
         }
@@ -216,7 +256,7 @@ fn finish(api: &mut Api<'_, '_>) -> eyre::Result<()> {
             battery.skipped,
             elapsed,
         );
-        emit(env, sender_inst, &line);
+        emit_rich(env, &targets, &line);
         Ok(())
     })
 }

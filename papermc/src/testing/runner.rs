@@ -85,7 +85,7 @@ fn handle_test_command(
             );
         }
         let line = summary_line(&plugin, 0, 0, 0, 0, Duration::ZERO);
-        emit(env, sender, &line);
+        emit_rich(env, &[sender], &line);
         return Ok(());
     }
 
@@ -106,6 +106,7 @@ fn handle_test_command(
     Ok(())
 }
 
+/// Build the summary line, its verdict colored to match libtest: green `OK`, red `FAILED`.
 pub(super) fn summary_line(
     plugin: &str,
     passed: usize,
@@ -116,10 +117,11 @@ pub(super) fn summary_line(
 ) -> String {
     let ok = failed == 0 && passed + ignored + skipped > 0;
     let verdict = if ok { "OK" } else { "FAILED" };
+    let color = if ok { "green" } else { "red" };
     let secs = elapsed.as_secs_f64();
     format!(
-        "[{plugin}] test result: {verdict}. {passed} passed; {failed} failed; {ignored} ignored; \
-         {skipped} skipped; finished in {secs:.2}s"
+        "[{plugin}] test result: <{color}>{verdict}</{color}>. {passed} passed; {failed} failed; \
+         {ignored} ignored; {skipped} skipped; finished in {secs:.2}s"
     )
 }
 
@@ -157,12 +159,25 @@ fn panic_message(payload: &(dyn std::any::Any + Send)) -> String {
     }
 }
 
-/// Send `line` to the invoker and mirror it to the server log.
+/// Send literal `line` to the invoker
 pub(super) fn emit(env: &mut Env<'_>, sender: &CommandSenderInst<'_>, line: &str) {
-    tracing::info!("{line}");
     let mut api = Api::new(env);
     if let Err(e) = sender.send_plain(&mut api, line) {
         tracing::debug!("failed to send test output to invoker: {e}");
+    }
+}
+
+/// Send a MiniMessage-formatted `line` to every target.
+///
+/// Battery output goes to the invoker and, when the invoker is not the console, to the console too.
+/// Dynamic content inside `line` must be escaped via
+/// [escape_tags](crate::bukkit::mini_message::escape_tags).
+pub(super) fn emit_rich(env: &mut Env<'_>, targets: &[&CommandSenderInst<'_>], line: &str) {
+    let mut api = Api::new(env);
+    for target in targets {
+        if let Err(e) = target.send_message(&mut api, line) {
+            tracing::debug!("failed to send test output: {e}");
+        }
     }
 }
 

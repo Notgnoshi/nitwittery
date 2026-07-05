@@ -3,13 +3,22 @@ use jni::{jni_sig, jni_str};
 
 use crate::api::Api;
 use crate::jobject_repr::JObjectRepr;
-use crate::papermc_jobject_inst;
+use crate::{papermc_jobject, papermc_jobject_inst};
 
 papermc_jobject_inst! {
     /// Mirrors `org.bukkit.command.CommandSender`.
     ///
     /// See <https://jd.papermc.io/paper/1.21.11/org/bukkit/command/CommandSender.html>.
     pub CommandSenderInst<'local> = "org/bukkit/command/CommandSender": CommandSender;
+}
+
+papermc_jobject! {
+    /// Mirrors `org.bukkit.command.ConsoleCommandSender`.
+    ///
+    /// Obtain via [crate::bukkit::Bukkit::console_sender].
+    ///
+    /// See <https://jd.papermc.io/paper/1.21.11/org/bukkit/command/ConsoleCommandSender.html>.
+    pub ConsoleCommandSender<'local> = "org/bukkit/command/ConsoleCommandSender": CommandSender;
 }
 
 /// Mirrors `org.bukkit.command.CommandSender`.

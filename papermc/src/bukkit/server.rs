@@ -1,7 +1,7 @@
 use jni::{jni_sig, jni_str};
 
 use crate::api::Api;
-use crate::bukkit::{BukkitScheduler, CommandMap, PluginManager};
+use crate::bukkit::{BukkitScheduler, CommandMap, ConsoleCommandSender, PluginManager};
 use crate::papermc_jobject;
 
 papermc_jobject! {
@@ -59,6 +59,22 @@ impl Bukkit {
             )?
             .l()?;
         Ok(unsafe { Server::from_jobject(obj) })
+    }
+
+    /// Mirrors `org.bukkit.Bukkit#getConsoleSender()`.
+    pub fn console_sender<'local>(
+        api: &mut Api<'_, 'local>,
+    ) -> eyre::Result<ConsoleCommandSender<'local>> {
+        let obj = api
+            .jni()
+            .call_static_method(
+                jni_str!("org/bukkit/Bukkit"),
+                jni_str!("getConsoleSender"),
+                jni_sig!("()Lorg/bukkit/command/ConsoleCommandSender;"),
+                &[],
+            )?
+            .l()?;
+        Ok(unsafe { ConsoleCommandSender::from_jobject(obj) })
     }
 
     /// Mirrors `org.bukkit.Bukkit#getScheduler()`.
