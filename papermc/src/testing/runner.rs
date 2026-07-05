@@ -1,13 +1,12 @@
 use std::panic::AssertUnwindSafe;
 use std::time::Duration;
 
-use jni::objects::{JObject, JString};
+use jni::Env;
+use jni::objects::JObject;
 use jni::refs::Global;
-use jni::{Env, jni_sig, jni_str};
 
 use crate::api::Api;
 use crate::bukkit::{CommandSender as _, CommandSenderInst};
-use crate::ctx;
 use crate::jobject_repr::{JClassCast as _, JObjectRepr as _};
 use crate::plugin::Plugin;
 use crate::setup_api::{Completer, SetupApi};
@@ -169,16 +168,7 @@ pub(super) fn emit(env: &mut Env<'_>, sender: &CommandSenderInst<'_>, line: &str
 
 /// The owning plugin's name from `org.bukkit.plugin.Plugin#getName()`
 fn plugin_name(env: &mut Env<'_>) -> eyre::Result<String> {
-    let plugin =
-        ctx::with_ctx(|c| c.java_plugin.clone()).expect("Ctx installed during plugin_init");
-    let name_obj = env
-        .call_method(
-            &*plugin,
-            jni_str!("getName"),
-            jni_sig!("()Ljava/lang/String;"),
-            &[],
-        )?
-        .l()?;
-    let name_jstr = env.cast_local::<JString>(name_obj)?;
-    Ok(name_jstr.try_to_string(env)?)
+    let mut api = Api::new(env);
+    let plugin = api.plugin()?;
+    plugin.name(&mut api)
 }
