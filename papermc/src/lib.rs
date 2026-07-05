@@ -33,6 +33,7 @@ pub use papermc_macros::test;
 pub use plugin::Plugin;
 pub use plugin_init::init;
 pub use setup_api::{Completer, SetupApi};
+pub use sync_call::RepeatingTask;
 
 /// Implementation details of `#[papermc::test]` expansions. Not public API.
 #[cfg(feature = "tests")]

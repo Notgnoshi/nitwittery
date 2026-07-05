@@ -1,11 +1,14 @@
 use std::sync::{Arc, Mutex};
 
-use jni::objects::JValue;
+use jni::objects::{JObject, JValue};
+use jni::refs::Global;
 use jni::sys::{JNIEnv, jlong};
 use jni::{Env, jni_sig, jni_str};
 use tracing::warn;
 
 use crate::api::Api;
+use crate::bukkit::{Bukkit, BukkitTask};
+use crate::jobject_repr::JObjectRepr as _;
 use crate::{ctx, ffi};
 
 /// A Rust closure invoked once on the main thread via `RustCallable.bridgeDispatch`.
@@ -16,7 +19,6 @@ use crate::{ctx, ffi};
 pub(crate) type SyncCallbackFn = Box<dyn for<'a, 'local> FnOnce(&mut Api<'a, 'local>) + Send>;
 
 /// A repeatedly-invocable main-thread closure, for `BukkitScheduler#runTaskTimer` tasks.
-#[cfg(feature = "tests")]
 pub(crate) type RepeatingCallbackFn = dyn for<'a, 'local> Fn(&mut Api<'a, 'local>) + Send + Sync;
 
 /// A registered `RustCallable.bridgeDispatch` target.
@@ -25,8 +27,33 @@ pub(crate) enum SyncCallback {
     Once(SyncCallbackFn),
     /// Stays registered across invocations (repeating scheduler tasks); removed explicitly by
     /// whoever registered it.
-    #[cfg(feature = "tests")]
     Repeating(Arc<RepeatingCallbackFn>),
+}
+
+/// Handle to a repeating main-thread task from [Api::schedule_repeating].
+pub struct RepeatingTask {
+    /// `org.bukkit.scheduler.BukkitTask` global for cancellation.
+    task: Global<JObject<'static>>,
+    /// Registry id of the repeating closure; removed on cancel.
+    callback_id: i64,
+}
+
+impl RepeatingTask {
+    /// Cancel the underlying `org.bukkit.scheduler.BukkitTask` and release the Rust closure.
+    ///
+    /// Safe to call from inside the repeating closure itself.
+    pub fn cancel(&self, api: &mut Api<'_, '_>) -> eyre::Result<()> {
+        let result = (|| -> eyre::Result<()> {
+            let task_local = api.jni().new_local_ref(&self.task)?;
+            let task = unsafe { BukkitTask::from_jobject(task_local) };
+            task.cancel(api)
+        })();
+        // Drop the closure even if the Bukkit-side cancel failed, so it cannot leak.
+        ctx::with_ctx(|c| {
+            c.sync_callbacks.remove(&self.callback_id);
+        });
+        result
+    }
 }
 
 impl<'a, 'local> Api<'a, 'local> {
@@ -76,48 +103,76 @@ impl<'a, 'local> Api<'a, 'local> {
 
     /// Construct a `RustCallable(id)`, schedule it via Bukkit, and block on `Future.get()`.
     fn run_callable_and_wait(&mut self, id: i64) -> eyre::Result<()> {
-        let env = self.jni();
-        let callable = env.new_object(
-            jni_str!("io/papermc/RustCallable"),
-            jni_sig!("(J)V"),
-            &[JValue::Long(id)],
-        )?;
-
-        let bukkit = env
-            .call_static_method(
-                jni_str!("org/bukkit/Bukkit"),
-                jni_str!("getScheduler"),
-                jni_sig!("()Lorg/bukkit/scheduler/BukkitScheduler;"),
-                &[],
-            )?
-            .l()?;
-
-        let plugin =
-            ctx::with_ctx(|c| c.java_plugin.clone()).expect("Ctx installed during plugin_init");
-
-        let future = env
-            .call_method(
-                &bukkit,
-                jni_str!("callSyncMethod"),
-                jni_sig!(
-                    "(Lorg/bukkit/plugin/Plugin;Ljava/util/concurrent/Callable;)\
-                     Ljava/util/concurrent/Future;"
-                ),
-                &[JValue::Object(&plugin), JValue::Object(&callable)],
-            )?
-            .l()?;
-
+        let callable = new_rust_callable(self.jni(), id)?;
+        let plugin = self.plugin()?;
+        let scheduler = Bukkit::scheduler(self)?;
+        #[allow(deprecated)]
+        let future = scheduler.call_sync_method(self, &plugin, &callable)?;
         // Future.get() blocks until the main thread executes the callable. We are on a non-main
         // thread (the netty configuration thread for AsyncPlayerSpawnLocationEvent), so this is
         // safe.
-        env.call_method(
-            &future,
-            jni_str!("get"),
-            jni_sig!("()Ljava/lang/Object;"),
-            &[],
-        )?;
+        future.get(self)?;
         Ok(())
     }
+
+    /// Schedule `f` to run repeatedly on the main server thread.
+    ///
+    /// Wraps `org.bukkit.scheduler.BukkitScheduler#runTaskTimer(Plugin, Runnable, long, long)` with
+    /// the Rust-closure bridging handled; prefer this over the raw
+    /// [BukkitScheduler::run_task_timer](crate::bukkit::BukkitScheduler::run_task_timer) wrapper.
+    /// `delay_ticks` is ticks until the first run; `period_ticks` is ticks between runs. Cancel via
+    /// [RepeatingTask::cancel], which also releases the closure.
+    pub fn schedule_repeating<F>(
+        &mut self,
+        delay_ticks: i64,
+        period_ticks: i64,
+        f: F,
+    ) -> eyre::Result<RepeatingTask>
+    where
+        F: for<'b, 'l> Fn(&mut Api<'b, 'l>) + Send + Sync + 'static,
+    {
+        let id = ctx::next_id();
+        ctx::with_ctx(|c| {
+            c.sync_callbacks
+                .insert(id, SyncCallback::Repeating(Arc::new(f)));
+        })
+        .expect("Ctx installed during plugin_init");
+        let result = (|| -> eyre::Result<RepeatingTask> {
+            let runnable = new_rust_callable(self.jni(), id)?;
+            let plugin = self.plugin()?;
+            let scheduler = Bukkit::scheduler(self)?;
+            #[allow(deprecated)]
+            let task =
+                scheduler.run_task_timer(self, &plugin, &runnable, delay_ticks, period_ticks)?;
+            let task = self.jni().new_global_ref(task.as_jobject())?;
+            Ok(RepeatingTask {
+                task,
+                callback_id: id,
+            })
+        })();
+        // A closure whose task never got scheduled would never be invoked or cancelled; drop it.
+        if result.is_err() {
+            ctx::with_ctx(|c| {
+                c.sync_callbacks.remove(&id);
+            });
+        }
+        result
+    }
+}
+
+/// Construct an `io.papermc.RustCallable(id)` bridge instance.
+///
+/// The class implements both `java.util.concurrent.Callable` and `java.lang.Runnable`, dispatching
+/// either way to the [SyncCallback] registered under `id`.
+fn new_rust_callable<'local>(
+    env: &mut Env<'local>,
+    id: i64,
+) -> jni::errors::Result<JObject<'local>> {
+    env.new_object(
+        jni_str!("io/papermc/RustCallable"),
+        jni_sig!("(J)V"),
+        &[JValue::Long(id)],
+    )
 }
 
 /// Trampoline target for `RustCallable.bridgeDispatch`.
@@ -130,7 +185,6 @@ pub(crate) unsafe extern "C" fn dispatch_callable(env_raw: *mut JNIEnv, id: jlon
         // repeating callbacks are put back for the next fire.
         let callback = ctx::with_ctx(|c| match c.sync_callbacks.remove(&id) {
             Some(SyncCallback::Once(f)) => Some(SyncCallback::Once(f)),
-            #[cfg(feature = "tests")]
             Some(SyncCallback::Repeating(f)) => {
                 c.sync_callbacks
                     .insert(id, SyncCallback::Repeating(f.clone()));
@@ -146,7 +200,6 @@ pub(crate) unsafe extern "C" fn dispatch_callable(env_raw: *mut JNIEnv, id: jlon
         let mut api = Api::new(env);
         match callback {
             SyncCallback::Once(f) => f(&mut api),
-            #[cfg(feature = "tests")]
             SyncCallback::Repeating(f) => f(&mut api),
         }
         Ok(())

@@ -8,15 +8,15 @@ use std::collections::VecDeque;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use jni::objects::{JObject, JValue};
+use jni::Env;
+use jni::objects::JObject;
 use jni::refs::Global;
-use jni::{Env, jni_sig, jni_str};
 
 use crate::api::Api;
 use crate::bukkit::CommandSenderInst;
 use crate::ctx;
 use crate::jobject_repr::JClassCast as _;
-use crate::sync_call::SyncCallback;
+use crate::sync_call::RepeatingTask;
 use crate::testing::runner::{emit, run_one, summary_line};
 use crate::testing::{TestCase, TestOutcome};
 
@@ -33,10 +33,8 @@ pub(crate) struct Battery {
     /// `org.bukkit.command.CommandSender` that invoked `/test`.
     sender: Arc<Global<JObject<'static>>>,
     plugin: String,
-    /// `org.bukkit.scheduler.BukkitTask` handle for cancellation.
-    task: Global<JObject<'static>>,
-    /// Registry id of the repeating callback; removed when the battery ends.
-    callback_id: i64,
+    /// Repeating scheduler task driving [tick]; cancelled when the battery ends.
+    task: RepeatingTask,
 }
 
 /// Start running a test [Battery].
@@ -54,27 +52,12 @@ pub(super) fn start(
         return Ok(false);
     }
     let sender = Arc::new(env.new_global_ref(sender_obj)?);
-    let id = ctx::next_id();
-    ctx::with_ctx(|c| {
-        c.sync_callbacks.insert(
-            id,
-            SyncCallback::Repeating(Arc::new(|api| {
-                if let Err(e) = tick(api) {
-                    tracing::error!("test battery tick failed: {e:?}");
-                }
-            })),
-        );
-    })
-    .expect("Ctx installed during plugin_init");
-    let task = match schedule_repeating(env, id) {
-        Ok(task) => task,
-        Err(e) => {
-            ctx::with_ctx(|c| {
-                c.sync_callbacks.remove(&id);
-            });
-            return Err(e);
+    let mut api = Api::new(env);
+    let task = api.schedule_repeating(1, 1, |api| {
+        if let Err(e) = tick(api) {
+            tracing::error!("test battery tick failed: {e:?}");
         }
-    };
+    })?;
     ctx::with_ctx(|c| {
         c.battery = Some(Battery {
             queue: cases.into(),
@@ -87,7 +70,6 @@ pub(super) fn start(
             sender,
             plugin,
             task,
-            callback_id: id,
         });
     })
     .expect("Ctx installed during plugin_init");
@@ -105,10 +87,10 @@ pub(crate) fn shutdown(env: &mut Env<'_>) {
         "test battery aborted by plugin disable with {} tests still queued",
         battery.queue.len(),
     );
-    cancel_task(env, &battery);
-    ctx::with_ctx(|c| {
-        c.sync_callbacks.remove(&battery.callback_id);
-    });
+    let mut api = Api::new(env);
+    if let Err(e) = battery.task.cancel(&mut api) {
+        tracing::warn!("failed to cancel test battery task: {e}");
+    }
 }
 
 /// Tick the test [Battery] in the [Api] context until [TICK_BUDGET] is spent or the battery ends.
@@ -208,12 +190,11 @@ fn finish(api: &mut Api<'_, '_>) -> eyre::Result<()> {
     let Some(battery) = battery else {
         return Ok(());
     };
-    let env = api.jni();
-    cancel_task(env, &battery);
-    ctx::with_ctx(|c| {
-        c.sync_callbacks.remove(&battery.callback_id);
-    });
+    if let Err(e) = battery.task.cancel(api) {
+        tracing::warn!("failed to cancel test battery task: {e}");
+    }
     let elapsed = battery.start.elapsed();
+    let env = api.jni();
     env.with_local_frame(16, |env| -> eyre::Result<()> {
         let sender_local = env.new_local_ref(&*battery.sender)?;
         let sender_inst = CommandSenderInst::wrap_ref(env, &sender_local)?;
@@ -238,53 +219,4 @@ fn finish(api: &mut Api<'_, '_>) -> eyre::Result<()> {
         emit(env, sender_inst, &line);
         Ok(())
     })
-}
-
-/// Cancel the battery's scheduler task.
-///
-/// Mirrors `org.bukkit.scheduler.BukkitTask#cancel()`.
-fn cancel_task(env: &mut Env<'_>, battery: &Battery) {
-    let result = (|| -> eyre::Result<()> {
-        let task_local = env.new_local_ref(&battery.task)?;
-        env.call_method(&task_local, jni_str!("cancel"), jni_sig!("()V"), &[])?;
-        Ok(())
-    })();
-    if let Err(e) = result {
-        tracing::warn!("failed to cancel test battery task: {e}");
-    }
-}
-
-/// Schedule a repeating `RustCallable(id)` with one-tick delay and period.
-///
-/// Mirrors `org.bukkit.scheduler.BukkitScheduler#runTaskTimer(Plugin, Runnable, long, long)`.
-fn schedule_repeating(env: &mut Env<'_>, id: i64) -> eyre::Result<Global<JObject<'static>>> {
-    let callable = env.new_object(
-        jni_str!("io/papermc/RustCallable"),
-        jni_sig!("(J)V"),
-        &[JValue::Long(id)],
-    )?;
-    let scheduler = env
-        .call_static_method(
-            jni_str!("org/bukkit/Bukkit"),
-            jni_str!("getScheduler"),
-            jni_sig!("()Lorg/bukkit/scheduler/BukkitScheduler;"),
-            &[],
-        )?
-        .l()?;
-    let plugin =
-        ctx::with_ctx(|c| c.java_plugin.clone()).expect("Ctx installed during plugin_init");
-    let task = env
-        .call_method(
-            &scheduler,
-            jni_str!("runTaskTimer"),
-            jni_sig!("(Lorg/bukkit/plugin/Plugin;Ljava/lang/Runnable;JJ)Lorg/bukkit/scheduler/BukkitTask;"),
-            &[
-                JValue::Object(&plugin),
-                JValue::Object(&callable),
-                JValue::Long(1),
-                JValue::Long(1),
-            ],
-        )?
-        .l()?;
-    Ok(env.new_global_ref(&task)?)
 }

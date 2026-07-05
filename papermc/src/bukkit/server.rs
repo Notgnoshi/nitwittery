@@ -1,7 +1,7 @@
 use jni::{jni_sig, jni_str};
 
 use crate::api::Api;
-use crate::bukkit::{CommandMap, PluginManager};
+use crate::bukkit::{BukkitScheduler, CommandMap, PluginManager};
 use crate::papermc_jobject;
 
 papermc_jobject! {
@@ -59,5 +59,19 @@ impl Bukkit {
             )?
             .l()?;
         Ok(unsafe { Server::from_jobject(obj) })
+    }
+
+    /// Mirrors `org.bukkit.Bukkit#getScheduler()`.
+    pub fn scheduler<'local>(api: &mut Api<'_, 'local>) -> eyre::Result<BukkitScheduler<'local>> {
+        let obj = api
+            .jni()
+            .call_static_method(
+                jni_str!("org/bukkit/Bukkit"),
+                jni_str!("getScheduler"),
+                jni_sig!("()Lorg/bukkit/scheduler/BukkitScheduler;"),
+                &[],
+            )?
+            .l()?;
+        Ok(unsafe { BukkitScheduler::from_jobject(obj) })
     }
 }
