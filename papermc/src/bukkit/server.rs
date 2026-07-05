@@ -1,6 +1,7 @@
 use jni::{jni_sig, jni_str};
 
 use crate::api::Api;
+use crate::bukkit::PluginManager;
 use crate::papermc_jobject;
 
 papermc_jobject! {
@@ -8,6 +9,22 @@ papermc_jobject! {
     ///
     /// See <https://jd.papermc.io/paper/1.21.11/org/bukkit/Server.html>.
     pub Server<'local> = "org/bukkit/Server";
+}
+
+impl<'local> Server<'local> {
+    /// Mirrors `org.bukkit.Server#getPluginManager()`.
+    pub fn plugin_manager(&self, api: &mut Api<'_, 'local>) -> eyre::Result<PluginManager<'local>> {
+        let obj = api
+            .jni()
+            .call_method(
+                &self.obj,
+                jni_str!("getPluginManager"),
+                jni_sig!("()Lorg/bukkit/plugin/PluginManager;"),
+                &[],
+            )?
+            .l()?;
+        Ok(unsafe { PluginManager::from_jobject(obj) })
+    }
 }
 
 /// Mirrors the static facade `org.bukkit.Bukkit`.

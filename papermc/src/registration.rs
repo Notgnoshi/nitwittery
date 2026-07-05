@@ -1,58 +1,33 @@
 use jni::objects::{JObject, JString, JValue};
 use jni::{Env, jni_sig, jni_str};
 
+use crate::api::Api;
+use crate::bukkit::{EventPriority, HandlerList};
 use crate::ctx;
 
 pub(crate) fn subscribe_event<'local>(
     env: &mut Env<'local>,
     event_class_name: &'static str,
     handler_id: i64,
-) -> jni::errors::Result<()> {
-    let event_class = ctx::cached_class(env, event_class_name)?;
-    let executor = env.new_object(
+) -> eyre::Result<()> {
+    let mut api = Api::new(env);
+    let event_class = api.class(event_class_name)?;
+    let executor = api.jni().new_object(
         jni_str!("io/papermc/RustEventExecutor"),
         jni_sig!("(J)V"),
         &[JValue::Long(handler_id)],
     )?;
-    let priority = env
-        .get_static_field(
-            jni_str!("org/bukkit/event/EventPriority"),
-            jni_str!("NORMAL"),
-            jni_sig!("Lorg/bukkit/event/EventPriority;"),
-        )?
-        .l()?;
-    let plugin =
-        ctx::with_ctx(|c| c.java_plugin.clone()).expect("Ctx installed during plugin_init");
-    let server = env
-        .call_method(
-            &*plugin,
-            jni_str!("getServer"),
-            jni_sig!("()Lorg/bukkit/Server;"),
-            &[],
-        )?
-        .l()?;
-    let plugin_manager = env
-        .call_method(
-            &server,
-            jni_str!("getPluginManager"),
-            jni_sig!("()Lorg/bukkit/plugin/PluginManager;"),
-            &[],
-        )?
-        .l()?;
-    let event_class_obj = JObject::from(event_class);
-    env.call_method(
-        &plugin_manager,
-        jni_str!("registerEvent"),
-        jni_sig!(
-            "(Ljava/lang/Class;Lorg/bukkit/event/Listener;Lorg/bukkit/event/EventPriority;Lorg/bukkit/plugin/EventExecutor;Lorg/bukkit/plugin/Plugin;)V"
-        ),
-        &[
-            JValue::Object(&event_class_obj),
-            JValue::Object(&executor),
-            JValue::Object(&priority),
-            JValue::Object(&executor),
-            JValue::Object(&plugin),
-        ],
+    let plugin = api.plugin()?;
+    let server = plugin.server(&mut api)?;
+    let plugin_manager = server.plugin_manager(&mut api)?;
+    #[allow(deprecated)]
+    plugin_manager.register_event(
+        &mut api,
+        &event_class,
+        &executor,
+        EventPriority::Normal,
+        &executor,
+        &plugin,
     )?;
     Ok(())
 }
@@ -199,14 +174,8 @@ pub(crate) fn unregister_commands(env: &mut Env<'_>) -> jni::errors::Result<()> 
 
 /// Must run before handler-map teardown; otherwise an event in flight between teardown and
 /// Bukkit's own listener cleanup logs a spurious "no handler registered" warning.
-pub(crate) fn unregister_all_listeners(env: &mut Env<'_>) -> jni::errors::Result<()> {
-    let plugin =
-        ctx::with_ctx(|c| c.java_plugin.clone()).expect("Ctx installed during plugin_init");
-    env.call_static_method(
-        jni_str!("org/bukkit/event/HandlerList"),
-        jni_str!("unregisterAll"),
-        jni_sig!("(Lorg/bukkit/plugin/Plugin;)V"),
-        &[JValue::Object(&plugin)],
-    )?;
-    Ok(())
+pub(crate) fn unregister_all_listeners(env: &mut Env<'_>) -> eyre::Result<()> {
+    let mut api = Api::new(env);
+    let plugin = api.plugin()?;
+    HandlerList::unregister_all(&mut api, &plugin)
 }
