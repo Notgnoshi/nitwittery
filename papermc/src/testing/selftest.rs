@@ -1,20 +1,7 @@
 use crate::api::Api;
-use crate::bukkit::{CommandSender as _, CommandSenderInst, Location, Player, World};
-
-/// The distributed registry and JNI plumbing work end to end inside the plugin cdylib.
-#[papermc::test]
-fn class_lookup(api: &mut Api) -> eyre::Result<()> {
-    api.class("java/lang/Object")?;
-    Ok(())
-}
-
-/// Manual-verification helper for runner batching and abort behavior; sleeps on the main thread.
-#[papermc::test(ignore = "slow")]
-fn slow_smoke(api: &mut Api) -> eyre::Result<()> {
-    std::thread::sleep(std::time::Duration::from_millis(250));
-    api.class("java/lang/Object")?;
-    Ok(())
-}
+use crate::bukkit::{
+    CommandSender as _, CommandSenderInst, Component, DyeColor, Key, Location, Player, World,
+};
 
 /// Marshalling round-trip through `org.bukkit.Location` accessors against a real world.
 #[papermc::test]
@@ -24,6 +11,46 @@ fn location_roundtrip(api: &mut Api, world: &World) -> eyre::Result<()> {
     eyre::ensure!(loc.y(api)? == 64.0, "y accessor");
     eyre::ensure!(loc.z(api)? == -3.25, "z accessor");
     eyre::ensure!(loc.world(api)?.is_some(), "world accessor");
+    Ok(())
+}
+
+/// `org.bukkit.World` accessors marshal against a live world.
+#[papermc::test]
+fn world_accessors(api: &mut Api, world: &World) -> eyre::Result<()> {
+    world.environment(api)?;
+    let spawn = world.spawn_location(api)?;
+    let x = spawn.block_x(api)?;
+    let z = spawn.block_z(api)?;
+    world.highest_block_y_at(api, x, z)?;
+    Ok(())
+}
+
+/// MiniMessage parses tags into a Component and escapes untrusted input.
+#[papermc::test]
+fn mini_message_roundtrip(api: &mut Api) -> eyre::Result<()> {
+    Component::mini_message(api, "<green>selftest</green>")?;
+    let escaped = crate::bukkit::mini_message::escape_tags(api.jni(), "<red>raw</red>")?;
+    eyre::ensure!(
+        escaped != "<red>raw</red>",
+        "escapeTags left tagged input unchanged"
+    );
+    Ok(())
+}
+
+/// The mirrored `Key.key(String, String)` static factory constructs a Key.
+#[papermc::test]
+fn key_factory(api: &mut Api) -> eyre::Result<()> {
+    Key::key(api, "papermc", "selftest")?;
+    Ok(())
+}
+
+/// `papermc_enum!` mirrors resolve their Java enum constants.
+#[papermc::test]
+fn dye_color_variants(api: &mut Api) -> eyre::Result<()> {
+    for variant in [DyeColor::White, DyeColor::Orange, DyeColor::Black] {
+        let obj = variant.as_java(api.jni())?;
+        eyre::ensure!(!obj.is_null(), "{variant:?} resolved to null");
+    }
     Ok(())
 }
 

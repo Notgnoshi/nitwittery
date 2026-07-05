@@ -31,7 +31,7 @@ impl<'local> World<'local> {
     }
 
     /// Mirrors `org.bukkit.World#getEnvironment()`.
-    pub fn environment(&self, api: &mut Api<'_, 'local>) -> eyre::Result<Environment> {
+    pub fn environment(&self, api: &mut Api<'_, '_>) -> eyre::Result<Environment> {
         let env_obj = {
             let env = api.jni();
             env.call_method(
@@ -58,7 +58,7 @@ impl<'local> World<'local> {
     }
 
     /// Mirrors `org.bukkit.World#getSpawnLocation()`.
-    pub fn spawn_location(&self, api: &mut Api<'_, 'local>) -> eyre::Result<Location<'local>> {
+    pub fn spawn_location<'l>(&self, api: &mut Api<'_, 'l>) -> eyre::Result<Location<'l>> {
         let env = api.jni();
         let obj = env
             .call_method(
@@ -72,12 +72,7 @@ impl<'local> World<'local> {
     }
 
     /// Mirrors `org.bukkit.World#getHighestBlockYAt(int, int)`.
-    pub fn highest_block_y_at(
-        &self,
-        api: &mut Api<'_, 'local>,
-        x: i32,
-        z: i32,
-    ) -> eyre::Result<i32> {
+    pub fn highest_block_y_at(&self, api: &mut Api<'_, '_>, x: i32, z: i32) -> eyre::Result<i32> {
         let env = api.jni();
         Ok(env
             .call_method(
@@ -93,14 +88,14 @@ impl<'local> World<'local> {
     ///
     /// With `find_unexplored=true`, the call may generate chunks and block the calling thread;
     /// must therefore be called from the main server thread.
-    pub fn locate_nearest_structure(
+    pub fn locate_nearest_structure<'l>(
         &self,
-        api: &mut Api<'_, 'local>,
-        origin: &Location<'local>,
+        api: &mut Api<'_, 'l>,
+        origin: &Location<'_>,
         structure: Structure,
         radius: i32,
         find_unexplored: bool,
-    ) -> eyre::Result<Option<StructureSearchResult<'local>>> {
+    ) -> eyre::Result<Option<StructureSearchResult<'l>>> {
         let structure_obj = {
             let env = api.jni();
             structure.as_java(env)?

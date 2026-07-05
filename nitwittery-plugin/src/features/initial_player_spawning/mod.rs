@@ -1,6 +1,6 @@
 mod config;
 mod handlers;
-mod locate;
+pub(crate) mod locate;
 
 pub use config::Config;
 use papermc::SetupApi;
