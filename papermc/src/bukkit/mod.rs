@@ -1,4 +1,6 @@
 mod audience;
+mod command;
+mod command_map;
 mod command_sender;
 mod component;
 pub mod dialog;
@@ -20,6 +22,8 @@ mod structure_search_result;
 mod world;
 
 pub use audience::Audience;
+pub use command::Command;
+pub use command_map::CommandMap;
 pub use command_sender::{CommandSender, CommandSenderInst};
 pub use component::Component;
 pub use dye_color::DyeColor;

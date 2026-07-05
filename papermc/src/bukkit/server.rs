@@ -1,7 +1,7 @@
 use jni::{jni_sig, jni_str};
 
 use crate::api::Api;
-use crate::bukkit::PluginManager;
+use crate::bukkit::{CommandMap, PluginManager};
 use crate::papermc_jobject;
 
 papermc_jobject! {
@@ -24,6 +24,20 @@ impl<'local> Server<'local> {
             )?
             .l()?;
         Ok(unsafe { PluginManager::from_jobject(obj) })
+    }
+
+    /// Mirrors `org.bukkit.Server#getCommandMap()` (a Paper API extension).
+    pub fn command_map(&self, api: &mut Api<'_, 'local>) -> eyre::Result<CommandMap<'local>> {
+        let obj = api
+            .jni()
+            .call_method(
+                &self.obj,
+                jni_str!("getCommandMap"),
+                jni_sig!("()Lorg/bukkit/command/CommandMap;"),
+                &[],
+            )?
+            .l()?;
+        Ok(unsafe { CommandMap::from_jobject(obj) })
     }
 }
 
