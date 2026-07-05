@@ -1,0 +1,51 @@
+name: Release
+
+on:
+    push:
+        branches: [main]
+    pull_request:
+        branches: [main]
+
+permissions:
+    contents: write
+
+jobs:
+    release:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v6
+
+            - name: Extract release metadata
+              shell: bash
+              run: |
+                  VERSION="$(.github/parse-manifest-key.sh nitwittery-plugin version)"
+                  DESCRIPTION="$(.github/parse-manifest-key.sh nitwittery-plugin description)"
+                  echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+                  echo "DESCRIPTION=$DESCRIPTION" >> "$GITHUB_ENV"
+
+            # Always generate notes for the manifest version. If that version is absent from
+            # CHANGELOG.md, fail the pipeline (including in PRs) so a release can never ship
+            # without notes.
+            - name: Generate release notes
+              shell: bash
+              run: .github/get-release-notes.sh "$VERSION" "$DESCRIPTION" | tee release.md
+
+            - name: Create release
+              if: github.ref_name == github.event.repository.default_branch
+              shell: bash
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: |
+                  if gh release view "v$VERSION" &>/dev/null; then
+                      echo "Release v$VERSION already exists. Skipping ..."
+                  else
+                      echo "Creating release v$VERSION ..."
+                      PRERELEASE_FLAG=""
+                      if [[ "$VERSION" == *-rc* ]]; then
+                          PRERELEASE_FLAG="--prerelease"
+                      fi
+                      gh release create "v$VERSION" \
+                          --title "v$VERSION" \
+                          --notes-file release.md \
+                          $PRERELEASE_FLAG
+                  fi
