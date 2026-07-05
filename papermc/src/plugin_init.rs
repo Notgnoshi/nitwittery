@@ -26,6 +26,8 @@ static FN_TABLE: FnTable = FnTable {
 
 unsafe extern "C" fn plugin_on_disable(env: *mut jni::sys::JNIEnv) -> i32 {
     let result = ffi::bridge(env, |env: &mut Env<'_>| -> eyre::Result<()> {
+        #[cfg(feature = "tests")]
+        crate::testing::shutdown(env);
         // Invoke the user's `Plugin::on_disable` (if a typed plugin was installed via `init::<P>`)
         // before tearing down anything else, so the user code still sees a live Ctx and JNI env.
         let plugin_and_fn = ctx::with_ctx(|c| {
@@ -94,6 +96,10 @@ pub fn init<P: Plugin>(env: *mut jni::sys::JNIEnv, plugin: jni::sys::jobject) ->
         if let Err(e) = logger::bind_dispatcher(env) {
             eprintln!("papermc::init: bind_dispatcher failed: {e}");
         }
+        tracing::info!(
+            "plugin DSO build id: {}",
+            crate::build_id::running_build_id().unwrap_or_else(|| "<unavailable>".to_string()),
+        );
         let plugin_obj = unsafe { JObject::from_raw(env, plugin) };
         let plugin_global = env.new_global_ref(&plugin_obj)?;
         if ctx::install(ctx::Ctx::new(plugin_global)).is_err() {
@@ -111,6 +117,8 @@ pub fn init<P: Plugin>(env: *mut jni::sys::JNIEnv, plugin: jni::sys::jobject) ->
                 P::on_disable(p, api)
             }));
         });
+        #[cfg(feature = "tests")]
+        crate::testing::register_test_command(&mut setup)?;
         Ok(())
     });
     match result {

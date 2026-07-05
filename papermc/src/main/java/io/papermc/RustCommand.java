@@ -1,5 +1,7 @@
 package io.papermc;
 
+import java.util.List;
+
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 
@@ -21,5 +23,21 @@ public final class RustCommand extends Command {
     @Override
     public boolean execute(CommandSender sender, String label, String[] args) {
         return RustPlugin.dispatch_command(handlerId, sender, args);
+    }
+
+    /**
+     * Forwards to the Rust completer registered under handlerId. A null return from
+     * the native side means "no completer" and falls back to Bukkit's default
+     * completion (online player names).
+     */
+    @Override
+    public List<String> tabComplete(CommandSender sender, String alias, String[] args) {
+        Object result = RustPlugin.dispatch_tab_complete(handlerId, sender, args);
+        if (result == null) {
+            return super.tabComplete(sender, alias, args);
+        }
+        @SuppressWarnings("unchecked")
+        List<String> completions = (List<String>) result;
+        return completions;
     }
 }

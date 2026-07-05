@@ -16,6 +16,14 @@ the focus on user impact** rather than the mechanics of the change.
 
 ## nitwittery
 
+# Nitwittery - 0.0.1-rc1 - (2026-07-05)
+
+## papermc
+
+Add `/test` command to run `#[papermc::test]` plugin tests from a running server.
+
 # Nitwittery - 0.0.1-rc0 - (2026-07-05)
 
-The initial proof-of-concept release of Nitwittery and papermc.
+The initial proof-of-concept release of Nitwittery and papermc. Players spawn are biased to spawn in
+a random village. This adds time to their first login as the server has to find a random village in
+the world.

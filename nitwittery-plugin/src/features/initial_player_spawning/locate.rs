@@ -3,7 +3,7 @@ use jni::refs::Global;
 use papermc::Api;
 use papermc::bukkit::{Location, Structure, World};
 use papermc::jobject_repr::JObjectRepr;
-use rand::Rng;
+use rand::{Rng, RngExt};
 
 use super::Config;
 
@@ -43,9 +43,9 @@ pub(super) fn find_village_location(
 ///
 /// Must be called on the main server thread because [World::locate_nearest_structure] with
 /// `find_unexplored=true` may generate chunks.
-pub(super) fn find_village_coords_inline<'local>(
-    api: &mut Api<'_, 'local>,
-    world: &World<'local>,
+pub(crate) fn find_village_coords_inline(
+    api: &mut Api<'_, '_>,
+    world: &World<'_>,
     cx: f64,
     cz: f64,
     config: Config,
@@ -83,7 +83,7 @@ pub(super) fn find_village_coords_inline<'local>(
 /// with collecting candidates into a `Vec` first.
 fn locate_any_village<'local>(
     api: &mut Api<'_, 'local>,
-    world: &World<'local>,
+    world: &World<'_>,
     anchor: &Location<'local>,
     radius_chunks: i32,
 ) -> eyre::Result<Option<Location<'local>>> {
@@ -143,4 +143,24 @@ mod tests {
         assert_eq!(x, 7.0);
         assert_eq!(z, 11.0);
     }
+}
+
+/// Exercise the village-locate pipeline end to end with a tiny search budget.
+///
+/// Villages are dozens of chunks apart, so a 4-chunk radius usually finds nothing; the assertion
+/// is that the pipeline runs without error, not that a village exists near spawn.
+#[cfg(feature = "tests")]
+#[papermc::test]
+fn village_locate_smoke(api: &mut Api, world: &World) -> eyre::Result<()> {
+    let config = Config {
+        enabled: true,
+        max_distance_from_spawn: 64.0,
+        max_attempts: 1,
+        locate_radius_chunks: 4,
+    };
+    let spawn = world.spawn_location(api)?;
+    let cx = spawn.x(api)?;
+    let cz = spawn.z(api)?;
+    let _ = find_village_coords_inline(api, world, cx, cz, config)?;
+    Ok(())
 }

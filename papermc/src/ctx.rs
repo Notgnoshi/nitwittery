@@ -11,26 +11,42 @@ use jni::strings::JNIStr;
 
 use crate::api::Api;
 use crate::callbacks::BiConsumerFn;
-use crate::dispatch::{CommandHandler, EventHandler};
-use crate::sync_call::SyncCallbackFn;
+use crate::dispatch::{CommandHandler, EventHandler, TabCompleter};
+use crate::sync_call::SyncCallback;
 
 pub(crate) type OnDisableFn =
     Box<dyn for<'a, 'local> Fn(&mut dyn Any, &mut Api<'a, 'local>) -> eyre::Result<()> + Send>;
+
+/// A command this load registered with the server command map, with the map keys needed to
+/// remove it again at teardown.
+pub(crate) struct RegisteredCommand {
+    pub(crate) command: Global<JObject<'static>>,
+    /// Lowercased primary label (`test`).
+    pub(crate) label: String,
+    /// Lowercased fallback prefix (`nitwittery`), forming the `nitwittery:test` alias key.
+    pub(crate) fallback: String,
+}
 
 /// Reload-scoped state.
 ///
 /// Born in `plugin_init`, dropped in `plugin_on_disable`.
 pub(crate) struct Ctx {
     pub(crate) java_plugin: Arc<Global<JObject<'static>>>,
-    pub(crate) registered_commands: Vec<Global<JObject<'static>>>,
+    pub(crate) registered_commands: Vec<RegisteredCommand>,
     pub(crate) event_handlers: HashMap<i64, EventHandler>,
     pub(crate) command_handlers: HashMap<i64, CommandHandler>,
+    /// Optional tab completers, keyed by the same handler id as `command_handlers`.
+    pub(crate) tab_completers: HashMap<i64, TabCompleter>,
     pub(crate) callbacks: HashMap<i64, BiConsumerFn>,
-    pub(crate) sync_callbacks: HashMap<i64, SyncCallbackFn>,
+    pub(crate) sync_callbacks: HashMap<i64, SyncCallback>,
     pub(crate) mini_message: Option<Arc<Global<JObject<'static>>>>,
     jni_cache: HashMap<&'static str, Arc<Global<JClass<'static>>>>,
     pub(crate) rust_plugin: Option<Box<dyn Any + Send>>,
     pub(crate) on_disable_fn: Option<OnDisableFn>,
+    /// In-flight `/test` battery, if any. Has to be cached here, because we don't run all of the
+    /// tests at once, we schedule them across multiple server ticks.
+    #[cfg(feature = "tests")]
+    pub(crate) battery: Option<crate::testing::Battery>,
 }
 
 impl Ctx {
@@ -40,12 +56,15 @@ impl Ctx {
             registered_commands: Vec::new(),
             event_handlers: HashMap::new(),
             command_handlers: HashMap::new(),
+            tab_completers: HashMap::new(),
             callbacks: HashMap::new(),
             sync_callbacks: HashMap::new(),
             mini_message: None,
             jni_cache: HashMap::new(),
             rust_plugin: None,
             on_disable_fn: None,
+            #[cfg(feature = "tests")]
+            battery: None,
         }
     }
 }
