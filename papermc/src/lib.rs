@@ -14,6 +14,7 @@ pub(crate) mod callbacks;
 pub(crate) mod ctx;
 mod dispatch;
 pub(crate) mod ffi;
+pub mod java;
 pub mod jobject_repr;
 pub mod logger;
 mod macros;

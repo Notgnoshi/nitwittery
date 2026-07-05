@@ -3,6 +3,7 @@ use jni::{jni_sig, jni_str};
 
 use crate::api::Api;
 use crate::bukkit::{Environment, Location, Structure, StructureSearchResult};
+use crate::java::{FromJava as _, ListInst};
 use crate::papermc_jobject;
 
 papermc_jobject! {
@@ -17,8 +18,8 @@ impl<'local> World<'local> {
     ///
     /// Mirrors `org.bukkit.Bukkit#getWorlds()`
     pub fn all(api: &mut Api<'_, 'local>) -> eyre::Result<Vec<World<'local>>> {
-        let env = api.jni();
-        let list = env
+        let list = api
+            .jni()
             .call_static_method(
                 jni_str!("org/bukkit/Bukkit"),
                 jni_str!("getWorlds"),
@@ -26,22 +27,7 @@ impl<'local> World<'local> {
                 &[],
             )?
             .l()?;
-        let size = env
-            .call_method(&list, jni_str!("size"), jni_sig!("()I"), &[])?
-            .i()?;
-        let mut worlds = Vec::with_capacity(size as usize);
-        for i in 0..size {
-            let obj = env
-                .call_method(
-                    &list,
-                    jni_str!("get"),
-                    jni_sig!("(I)Ljava/lang/Object;"),
-                    &[JValue::Int(i)],
-                )?
-                .l()?;
-            worlds.push(unsafe { World::from_jobject(obj) });
-        }
-        Ok(worlds)
+        Vec::from_java(api, &ListInst::new(list))
     }
 
     /// Mirrors `org.bukkit.World#getEnvironment()`.
